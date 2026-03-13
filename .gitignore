@@ -1,0 +1,15 @@
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.*
+!**/.env.example
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+dist/
