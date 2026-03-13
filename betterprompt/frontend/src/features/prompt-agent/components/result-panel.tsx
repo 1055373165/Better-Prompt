@@ -51,6 +51,16 @@ export function ResultPanel({
     : continueResult?.source_mode === 'debug'
       ? 'Debug'
       : 'Evaluate';
+  const emptyStateTitle = mode === 'generate'
+    ? '生成结果会显示在这里'
+    : mode === 'debug'
+      ? '调试诊断会显示在这里'
+      : '评估结果会显示在这里';
+  const emptyStateDescription = mode === 'generate'
+    ? '先在左侧描述你的目标，系统会返回结构化 Prompt，并附带诊断与后续优化入口。'
+    : mode === 'debug'
+      ? '补充任务、当前 Prompt 和当前输出后，这里会展示问题诊断与修复版本。'
+      : '粘贴 Prompt 或输出后，这里会显示评分拆解、主要问题和建议修复方向。';
 
   if (mode === 'generate' && generateResult) {
     return (
@@ -58,36 +68,37 @@ export function ResultPanel({
         {generateResult.diagnosis_visible && generateResult.diagnosis && (
           <DiagnosisCard diagnosis={generateResult.diagnosis} />
         )}
-        <Card className="rounded-[1.75rem] border-white/70 bg-white/75 shadow-[0_20px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
+        <Card className="rounded-[1.85rem] border-white/70 bg-white/82 shadow-[0_22px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-sm font-medium text-slate-900">
-              生成后的{ARTIFACT_TYPE_LABELS[generateResult.artifact_type] ?? 'Prompt'}
+              生成结果
             </CardTitle>
             <Button variant="ghost" size="sm" className="text-slate-600 hover:bg-slate-100 hover:text-slate-900" onClick={() => onCopy(generateResult.final_prompt)}>
               <Copy className="mr-2 h-4 w-4" />复制
             </Button>
           </CardHeader>
           <CardContent>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
+                {ARTIFACT_TYPE_LABELS[generateResult.artifact_type] ?? 'Prompt'}
+              </div>
+              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
+                {generateResult.generation_backend === 'llm'
+                  ? `LLM${generateResult.generation_model ? ` · ${generateResult.generation_model}` : ''}`
+                  : '模板回退'}
+              </div>
+              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
+                {generateResult.optimization_strategy}
+              </div>
+              {generateResult.prompt_only && (
+                <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
+                  仅输出 Prompt
+                </div>
+              )}
+            </div>
             <div className="rounded-[1.5rem] border border-slate-200/80 bg-[linear-gradient(180deg,#ffffff,#f8fafc)] p-5 text-sm leading-7 whitespace-pre-wrap text-slate-800">
               {generateResult.final_prompt}
             </div>
-            <div className="mt-4 text-xs text-slate-500">
-              优化策略：{generateResult.optimization_strategy}
-            </div>
-            <div className="mt-2 text-xs text-slate-500">
-              产物类型：{ARTIFACT_TYPE_LABELS[generateResult.artifact_type] ?? generateResult.artifact_type}
-            </div>
-            <div className="mt-2 text-xs text-slate-500">
-              生成后端：
-              {generateResult.generation_backend === 'llm'
-                ? ` LLM${generateResult.generation_model ? ` · ${generateResult.generation_model}` : ''}`
-                : ' 模板回退'}
-            </div>
-            {generateResult.prompt_only && (
-              <div className="mt-2 text-xs text-slate-500">
-                当前返回按“仅输出 Prompt”模式组织。
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
@@ -200,8 +211,9 @@ export function ResultPanel({
   }
 
   return (
-    <div className="rounded-[1.75rem] border border-dashed border-slate-300 bg-white/60 p-10 text-center text-sm text-slate-500 shadow-[0_20px_70px_-42px_rgba(15,23,42,0.16)] backdrop-blur-xl">
-      输入你的需求，Prompt Agent 会先帮你理解意图，再返回更高质量的 Prompt 结果。
+    <div className="rounded-[1.85rem] border border-dashed border-slate-300 bg-white/65 p-10 text-center shadow-[0_20px_70px_-42px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+      <div className="text-sm font-medium text-slate-900">{emptyStateTitle}</div>
+      <div className="mt-2 text-sm leading-6 text-slate-500">{emptyStateDescription}</div>
     </div>
   );
 }

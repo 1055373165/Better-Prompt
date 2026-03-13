@@ -1,6 +1,27 @@
 export type PromptAgentMode = 'generate' | 'debug' | 'evaluate';
 export type PromptAgentResponseMode = PromptAgentMode | 'continue';
 export type PromptArtifactType = 'system_prompt' | 'task_prompt' | 'analysis_workflow' | 'conversation_prompt';
+export type GenerateOutputPreference = 'balanced' | 'depth' | 'execution' | 'natural';
+export type EvaluateTargetType = 'prompt' | 'output';
+
+export interface GenerateDraft {
+  userInput: string;
+  showDiagnosis: boolean;
+  promptOnly: boolean;
+  artifactType: PromptArtifactType;
+  outputPreference: GenerateOutputPreference;
+}
+
+export interface DebugDraft {
+  originalTask: string;
+  currentPrompt: string;
+  currentOutput: string;
+}
+
+export interface EvaluateDraft {
+  targetText: string;
+  targetType: EvaluateTargetType;
+}
 
 export interface PromptDiagnosis {
   task_type: string;

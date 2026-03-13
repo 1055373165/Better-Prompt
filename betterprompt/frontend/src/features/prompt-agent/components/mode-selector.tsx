@@ -28,15 +28,15 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
           type="button"
           onClick={() => onChange(mode.value)}
           className={cn(
-            'group relative overflow-hidden rounded-[1.75rem] border p-5 text-left transition-all duration-300',
+            'group relative overflow-hidden rounded-[1.5rem] border p-4 text-left transition-all duration-300',
             value === mode.value
-              ? 'border-slate-900/10 bg-slate-950 text-white shadow-[0_20px_70px_-32px_rgba(15,23,42,0.85)]'
-              : 'border-white/60 bg-white/80 shadow-[0_18px_60px_-36px_rgba(15,23,42,0.18)] backdrop-blur-xl hover:-translate-y-0.5 hover:border-slate-200 hover:bg-white'
+              ? 'border-slate-900/10 bg-slate-950 text-white shadow-[0_20px_60px_-34px_rgba(15,23,42,0.82)]'
+              : 'border-white/70 bg-white/85 shadow-[0_18px_50px_-38px_rgba(15,23,42,0.16)] backdrop-blur-xl hover:-translate-y-0.5 hover:border-slate-200 hover:bg-white'
           )}
         >
           <div
             className={cn(
-              'absolute inset-x-0 top-0 h-24 opacity-80 transition-opacity',
+              'absolute inset-x-0 top-0 h-20 opacity-80 transition-opacity',
               value === mode.value
                 ? 'bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.22),transparent_58%)]'
                 : 'bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.08),transparent_58%)] group-hover:opacity-100'
@@ -55,10 +55,10 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
                 {mode.badge}
               </div>
               <div>
-                <div className={cn('text-base font-semibold tracking-tight', value === mode.value ? 'text-white' : 'text-slate-900')}>
+                <div className={cn('text-sm font-semibold tracking-tight md:text-base', value === mode.value ? 'text-white' : 'text-slate-900')}>
                   {mode.label}
                 </div>
-                <div className={cn('mt-2 max-w-[28ch] text-sm leading-6', value === mode.value ? 'text-white/70' : 'text-slate-500')}>
+                <div className={cn('mt-1.5 max-w-[30ch] text-sm leading-6', value === mode.value ? 'text-white/70' : 'text-slate-500')}>
                   {mode.description}
                 </div>
               </div>
