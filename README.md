@@ -96,7 +96,31 @@ npm run dev
 
 By default the frontend talks to `/api/v1`. During local development, Vite proxies `/api` to `http://127.0.0.1:8000`.
 
-### 3. Open the App
+### 3. One-Command Dev Workflow
+
+If you want a single command to bring both services up or down:
+
+```bash
+./scripts/betterprompt-dev.sh start
+./scripts/betterprompt-dev.sh stop
+```
+
+The script also supports:
+
+```bash
+./scripts/betterprompt-dev.sh restart
+./scripts/betterprompt-dev.sh status
+./scripts/betterprompt-dev.sh logs
+```
+
+It starts:
+
+- FastAPI backend on `127.0.0.1:8000`
+- Vite frontend on `127.0.0.1:5173`
+
+Runtime logs are written to `betterprompt/.run/logs/`. The script expects backend dependencies, frontend dependencies, and `betterprompt/backend/.env` to be ready first.
+
+### 4. Open the App
 
 - Frontend: [http://127.0.0.1:5173](http://127.0.0.1:5173)
 - Backend health: [http://127.0.0.1:8000/api/v1/health](http://127.0.0.1:8000/api/v1/health)
