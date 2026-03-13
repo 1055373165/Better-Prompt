@@ -1,0 +1,17 @@
+[project]
+name = "betterprompt-backend"
+version = "0.1.0"
+description = "BetterPrompt backend"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115.5",
+  "uvicorn[standard]>=0.32.0",
+  "pydantic>=2.9.2",
+  "sqlalchemy>=2.0.36",
+  "aiosqlite>=0.20.0",
+  "greenlet>=3.1.1"
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
