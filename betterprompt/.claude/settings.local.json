@@ -5,7 +5,17 @@
       "Bash(cd /Users/smy/project/better-prompt/betterprompt/backend && python3 -c \"\nfrom app.schemas.prompt_agent import PromptTaskType, EvaluatePromptResponse\nfrom app.services.prompt_agent.task_understanding import TaskUnderstandingEngine\nfrom app.services.prompt_agent.module_router import PromptModuleRouter\nfrom app.services.prompt_agent.diagnosis import PromptDiagnosisEngine\nfrom app.services.prompt_agent.generate_engine import PromptGenerateEngine\nfrom app.services.prompt_agent.evaluate_engine import PromptEvaluateEngine\nprint\\('All imports OK'\\)\n\")",
       "Bash(cd /Users/smy/project/better-prompt/betterprompt/backend && .venv/bin/python -c \"\nfrom app.schemas.prompt_agent import PromptTaskType, EvaluatePromptResponse\nfrom app.services.prompt_agent.task_understanding import TaskUnderstandingEngine\nfrom app.services.prompt_agent.module_router import PromptModuleRouter\nfrom app.services.prompt_agent.diagnosis import PromptDiagnosisEngine\nfrom app.services.prompt_agent.generate_engine import PromptGenerateEngine\nfrom app.services.prompt_agent.evaluate_engine import PromptEvaluateEngine\nfrom app.services.prompt_agent.orchestrator import PromptAgentOrchestrator\nprint\\('All imports OK'\\)\n\")",
       "Bash(cd /Users/smy/project/better-prompt/betterprompt/frontend && npx tsc --noEmit 2>&1 | head -30)",
-      "Bash(cd /Users/smy/project/better-prompt/betterprompt/frontend && npx tsc --noEmit 2>&1 | grep \"error TS\" | wc -l)"
+      "Bash(cd /Users/smy/project/better-prompt/betterprompt/frontend && npx tsc --noEmit 2>&1 | grep \"error TS\" | wc -l)",
+      "Bash(xxd /Users/smy/project/better-prompt/betterprompt/frontend/src/features/prompt-agent/components/result-panel.tsx | grep -n 'e2 80 9c\\\\|e2 80 9d' | head -10)",
+      "Bash(for line in 172 173 174 175 176 177 178 179; do echo \"=== Line $line ===\" && sed -n \"${line}p\" /Users/smy/project/better-prompt/betterprompt/frontend/src/features/prompt-agent/components/result-panel.tsx | hexdump -C | head -6; done)",
+      "Bash(cd /Users/smy/project/better-prompt/betterprompt/frontend && npx tsc --noEmit 2>&1 | grep \"result-panel\" | head -5)",
+      "Bash(npx tsc --noEmit 2>&1 | grep \"error TS\" | wc -l)",
+      "Bash(LC_ALL=C sed -n 'l' /Users/smy/project/better-prompt/betterprompt/frontend/src/features/prompt-agent/components/generate-panel.tsx | grep -c '\\\\\\\\xe2\\\\\\\\x80' 2>/dev/null; hexdump -C /Users/smy/project/better-prompt/betterprompt/frontend/src/features/prompt-agent/components/generate-panel.tsx | grep 'e2 80 9' | head -3)",
+      "Bash(npx tsc --noEmit 2>&1 | grep \"index.tsx\" | head -10)",
+      "Bash(node -e \"const l = require\\('lucide-react'\\); console.log\\('ChartBar:', !!l.ChartBar, 'Code2:', !!l.Code2, 'Brain:', !!l.Brain, 'GraduationCap:', !!l.GraduationCap, 'Megaphone:', !!l.Megaphone, 'PenLine:', !!l.PenLine, 'Target:', !!l.Target, 'Lightbulb:', !!l.Lightbulb\\)\")",
+      "Bash(node -e 'const l = require\\(\"lucide-react\"\\); console.log\\(\"ChartBar:\", !!l.ChartBar, \"Code2:\", !!l.Code2, \"Brain:\", !!l.Brain, \"GraduationCap:\", !!l.GraduationCap, \"Megaphone:\", !!l.Megaphone, \"PenLine:\", !!l.PenLine, \"Target:\", !!l.Target, \"Lightbulb:\", !!l.Lightbulb\\)')",
+      "Bash(npx tsc --noEmit 2>&1 | head -20)",
+      "Bash(cd /Users/smy/project/better-prompt/betterprompt/backend && .venv/bin/python -c \"\nfrom app.api.v1.prompt_agent import router\nfrom app.services.prompt_agent.orchestrator import PromptAgentOrchestrator\nfrom app.services.llm.openai_compatible_client import OpenAICompatibleLLMClient\nprint\\('All backend imports OK'\\)\nprint\\('Routes:', [r.path for r in router.routes]\\)\n\")"
     ]
   }
 }
