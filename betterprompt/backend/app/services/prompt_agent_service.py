@@ -1,3 +1,5 @@
+from collections.abc import AsyncGenerator
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.prompt_agent import (
@@ -20,6 +22,10 @@ class PromptAgentService:
 
     async def generate(self, request: GeneratePromptRequest) -> GeneratePromptResponse:
         return await self.orchestrator.generate(request)
+
+    async def generate_stream(self, request: GeneratePromptRequest) -> AsyncGenerator[str, None]:
+        async for chunk in self.orchestrator.generate_stream(request):
+            yield chunk
 
     async def debug(self, request: DebugPromptRequest) -> DebugPromptResponse:
         return await self.orchestrator.debug(request)

@@ -1,3 +1,6 @@
+import json
+from collections.abc import AsyncGenerator
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.prompt_agent import (
@@ -74,6 +77,50 @@ class PromptAgentOrchestrator:
             generation_backend=generation_backend,
             generation_model=generation_model,
         )
+
+    async def generate_stream(self, request: GeneratePromptRequest) -> AsyncGenerator[str, None]:
+        """Yield SSE events for streaming generate. Each event is a JSON line."""
+        diagnosis = self.task_understanding.understand(request)
+        diagnosis = self.diagnosis_engine.enrich_generate_diagnosis(diagnosis)
+        modules = self.module_router.route_for_generate(diagnosis)
+        optimized_input = self.optimization_layer.optimize_generate_input(request, diagnosis)
+
+        # Send metadata event first
+        meta = {
+            'event': 'meta',
+            'diagnosis': diagnosis.model_dump() if request.show_diagnosis else None,
+            'artifact_type': request.artifact_type,
+            'applied_modules': list(modules),
+            'optimization_strategy': self.optimization_layer.strategy_name,
+            'optimized_input': optimized_input,
+            'prompt_only': request.prompt_only,
+            'diagnosis_visible': request.show_diagnosis,
+        }
+        yield f"data: {json.dumps(meta, ensure_ascii=False)}\n\n"
+
+        try:
+            llm_client = get_default_llm_client()
+        except PromptLLMConfigurationError:
+            if not is_template_fallback_enabled():
+                error_event = {'event': 'error', 'detail': 'LLM not configured and template fallback disabled'}
+                yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+                return
+            # Template fallback: send full content at once
+            prompt_instruction = self.generate_engine.build_prompt(request, optimized_input, diagnosis, modules)
+            chunk_event = {'event': 'chunk', 'content': prompt_instruction}
+            yield f"data: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+            done_event = {'event': 'done', 'generation_backend': 'template', 'generation_model': None}
+            yield f"data: {json.dumps(done_event, ensure_ascii=False)}\n\n"
+            return
+
+        # Stream from LLM
+        system_prompt, user_prompt = self.generate_engine.build_messages(request, optimized_input, diagnosis, modules)
+        async for chunk in llm_client.generate_text_stream(system_prompt=system_prompt, user_prompt=user_prompt):
+            chunk_event = {'event': 'chunk', 'content': chunk}
+            yield f"data: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+
+        done_event = {'event': 'done', 'generation_backend': 'llm', 'generation_model': llm_client.model_name}
+        yield f"data: {json.dumps(done_event, ensure_ascii=False)}\n\n"
 
     async def debug(self, request: DebugPromptRequest) -> DebugPromptResponse:
         top_failure_mode, missing_layers, strengths, weaknesses = self.diagnosis_engine.diagnose_debug(

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 
 from app.api.deps import DbSession
 from app.schemas.prompt_agent import (
@@ -32,6 +33,20 @@ async def generate_prompt(request: GeneratePromptRequest, db: DbSession) -> Gene
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(exc),
         ) from exc
+
+
+@router.post('/generate/stream')
+async def generate_prompt_stream(request: GeneratePromptRequest, db: DbSession):
+    service = PromptAgentService(db)
+    return StreamingResponse(
+        service.generate_stream(request),
+        media_type='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
+        },
+    )
 
 
 @router.post('/debug', response_model=DebugPromptResponse)

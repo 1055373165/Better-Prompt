@@ -77,6 +77,83 @@ class OpenAICompatibleLLMClient:
     async def generate_text(self, *, system_prompt: str, user_prompt: str) -> str:
         return await asyncio.to_thread(self._generate_text_sync, system_prompt, user_prompt)
 
+    async def generate_text_stream(self, *, system_prompt: str, user_prompt: str):
+        """Yield text chunks from the LLM via SSE streaming."""
+        queue: asyncio.Queue[str | None] = asyncio.Queue()
+
+        def _stream_sync():
+            try:
+                for chunk in self._generate_text_stream_sync(system_prompt, user_prompt):
+                    queue.put_nowait(chunk)
+            finally:
+                queue.put_nowait(None)
+
+        loop = asyncio.get_event_loop()
+        task = loop.run_in_executor(None, _stream_sync)
+
+        while True:
+            item = await queue.get()
+            if item is None:
+                break
+            yield item
+
+        await task
+
+    def _generate_text_stream_sync(self, system_prompt: str, user_prompt: str):
+        payload = {
+            'model': self.config.model,
+            'temperature': self.config.temperature,
+            'stream': True,
+            'messages': [
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': user_prompt},
+            ],
+        }
+        body = json.dumps(payload).encode('utf-8')
+        req = request.Request(
+            self.config.request_url,
+            data=body,
+            headers={
+                'Authorization': f'Bearer {self.config.api_key}',
+                'Content-Type': 'application/json',
+            },
+            method='POST',
+        )
+
+        try:
+            response = request.urlopen(req, timeout=self.config.timeout_seconds)
+        except error.HTTPError as exc:
+            error_body = exc.read().decode('utf-8', errors='ignore')
+            raise PromptLLMRequestError(
+                f'Upstream LLM request failed with status {exc.code}: {error_body[:400]}'
+            ) from exc
+        except error.URLError as exc:
+            raise PromptLLMRequestError(f'Upstream LLM request could not be completed: {exc.reason}') from exc
+
+        try:
+            buffer = ''
+            for raw_line in response:
+                line = raw_line.decode('utf-8', errors='replace')
+                buffer += line
+                while '\n' in buffer:
+                    sse_line, buffer = buffer.split('\n', 1)
+                    sse_line = sse_line.strip()
+                    if not sse_line.startswith('data: '):
+                        continue
+                    data_str = sse_line[6:]
+                    if data_str == '[DONE]':
+                        return
+                    try:
+                        chunk_obj = json.loads(data_str)
+                    except json.JSONDecodeError:
+                        continue
+                    delta = (chunk_obj.get('choices') or [{}])[0].get('delta', {})
+                    content = delta.get('content')
+                    if content:
+                        yield content
+        finally:
+            response.close()
+
     def _generate_text_sync(self, system_prompt: str, user_prompt: str) -> str:
         payload = {
             'model': self.config.model,
