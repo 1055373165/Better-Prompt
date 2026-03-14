@@ -1,4 +1,4 @@
-import { Copy, Wand2 } from 'lucide-react';
+import { Copy, Loader2, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DiagnosisCard } from './diagnosis-card';
@@ -9,6 +9,8 @@ import type {
   EvaluatePromptResponse,
   GeneratePromptResponse,
   PromptAgentMode,
+  PromptArtifactType,
+  PromptDiagnosis,
 } from '../types';
 
 const ARTIFACT_TYPE_LABELS: Record<string, string> = {
@@ -29,6 +31,16 @@ const FIX_LAYER_LABELS: Record<string, string> = {
   style_control: '风格控制层',
 };
 
+interface StreamMeta {
+  diagnosis: PromptDiagnosis | null;
+  artifact_type: PromptArtifactType;
+  applied_modules: string[];
+  optimization_strategy: string;
+  optimized_input: string;
+  prompt_only: boolean;
+  diagnosis_visible: boolean;
+}
+
 interface ResultPanelProps {
   mode: PromptAgentMode;
   generateResult: GeneratePromptResponse | null;
@@ -36,6 +48,9 @@ interface ResultPanelProps {
   evaluateResult: EvaluatePromptResponse | null;
   continueResult: ContinuePromptResponse | null;
   onCopy: (content: string) => void;
+  streamingText?: string;
+  isStreaming?: boolean;
+  streamMeta?: StreamMeta | null;
 }
 
 export function ResultPanel({
@@ -45,6 +60,9 @@ export function ResultPanel({
   evaluateResult,
   continueResult,
   onCopy,
+  streamingText = '',
+  isStreaming = false,
+  streamMeta = null,
 }: ResultPanelProps) {
   const continueSourceLabel = continueResult?.source_mode === 'generate'
     ? 'Generate'
@@ -61,6 +79,55 @@ export function ResultPanel({
     : mode === 'debug'
       ? '补充任务、当前 Prompt 和当前输出后，这里会展示问题诊断与修复版本。'
       : '粘贴 Prompt 或输出后，这里会显示评分拆解、主要问题和建议修复方向。';
+
+  // Streaming state: show progressive output while generating
+  if (mode === 'generate' && isStreaming && streamingText) {
+    return (
+      <div className="space-y-4">
+        {streamMeta?.diagnosis_visible && streamMeta?.diagnosis && (
+          <DiagnosisCard diagnosis={streamMeta.diagnosis} />
+        )}
+        <Card className="rounded-[1.85rem] border-white/70 bg-white/82 shadow-[0_22px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium text-slate-900">
+              <Loader2 className="h-4 w-4 animate-spin text-sky-500" />
+              生成中...
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {streamMeta && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
+                  {ARTIFACT_TYPE_LABELS[streamMeta.artifact_type] ?? 'Prompt'}
+                </div>
+                <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
+                  {streamMeta.optimization_strategy}
+                </div>
+              </div>
+            )}
+            <div className="rounded-[1.5rem] border border-slate-200/80 bg-[linear-gradient(180deg,#ffffff,#f8fafc)] p-5 text-sm leading-7 whitespace-pre-wrap text-slate-800">
+              {streamingText}
+              <span className="inline-block h-4 w-0.5 animate-pulse bg-sky-500 align-text-bottom" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Streaming in progress but no text yet — show a loading skeleton
+  if (mode === 'generate' && isStreaming && !streamingText) {
+    return (
+      <Card className="rounded-[1.85rem] border-white/70 bg-white/82 shadow-[0_22px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
+        <CardContent className="flex items-center justify-center py-16">
+          <div className="flex items-center gap-3 text-sm text-slate-500">
+            <Loader2 className="h-5 w-5 animate-spin text-sky-500" />
+            正在分析任务并生成 Prompt...
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (mode === 'generate' && generateResult) {
     return (

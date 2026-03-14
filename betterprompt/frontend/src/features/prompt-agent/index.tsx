@@ -6,7 +6,7 @@ import { GeneratePanel } from './components/generate-panel';
 import { ModeSelector } from './components/mode-selector';
 import { ResultPanel } from './components/result-panel';
 import { ContinueActions } from './components/continue-actions';
-import { usePromptAgentGenerate } from './hooks/use-prompt-agent-generate';
+import { usePromptAgentGenerateStream } from './hooks/use-prompt-agent-generate-stream';
 import { usePromptAgentDebug } from './hooks/use-prompt-agent-debug';
 import { usePromptAgentEvaluate } from './hooks/use-prompt-agent-evaluate';
 import { usePromptAgentContinue } from './hooks/use-prompt-agent-continue';
@@ -44,7 +44,7 @@ export default function PromptAgentPage() {
   const [debugDraft, setDebugDraft] = useState<DebugDraft>(INITIAL_DEBUG_DRAFT);
   const [evaluateDraft, setEvaluateDraft] = useState<EvaluateDraft>(INITIAL_EVALUATE_DRAFT);
 
-  const generateMutation = usePromptAgentGenerate();
+  const generateMutation = usePromptAgentGenerateStream();
   const debugMutation = usePromptAgentDebug();
   const evaluateMutation = usePromptAgentEvaluate();
   const continueMutation = usePromptAgentContinue();
@@ -217,6 +217,9 @@ export default function PromptAgentPage() {
               evaluateResult={evaluateMutation.data ?? null}
               continueResult={continueMutation.data ?? null}
               onCopy={handleCopy}
+              streamingText={generateMutation.streamingText}
+              isStreaming={generateMutation.isStreaming}
+              streamMeta={generateMutation.meta}
             />
             <ContinueActions
               actions={latestActions}
