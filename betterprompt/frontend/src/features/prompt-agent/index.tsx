@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, Layers3, Sparkles, Wand2 } from 'lucide-react';
+import { ArrowUpRight, Brain, ChartBar, Code2, GraduationCap, Layers3, Lightbulb, Megaphone, PenLine, Search, Sparkles, Target, Wand2 } from 'lucide-react';
 import { DebugPanel } from './components/debug-panel';
 import { EvaluatePanel } from './components/evaluate-panel';
 import { GeneratePanel } from './components/generate-panel';
@@ -92,9 +92,30 @@ export default function PromptAgentPage() {
                 Prompt Agent
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
-                这页现在聚焦成一个更清晰的工作台: 左侧只保留一个主输入入口，右侧稳定显示结果和后续优化动作，
-                减少重复表单，让生成、调试、评估都围绕同一条心智路径展开。
+                描述你的目标，系统自动识别任务类型、选择控制模块、预判失败模式，生成可直接使用的高质量 Prompt。
               </p>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                {[
+                  { icon: Code2, label: '代码分析' },
+                  { icon: Target, label: '架构设计' },
+                  { icon: ChartBar, label: '数据分析' },
+                  { icon: Search, label: '商业洞察' },
+                  { icon: Lightbulb, label: '产品设计' },
+                  { icon: GraduationCap, label: '教学' },
+                  { icon: Megaphone, label: '创意营销' },
+                  { icon: PenLine, label: '写作' },
+                  { icon: Brain, label: '算法' },
+                ].map(({ icon: Icon, label }) => (
+                  <div
+                    key={label}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-white/70 px-2.5 py-1 text-xs text-slate-500 transition hover:border-slate-300 hover:bg-white hover:text-slate-700"
+                  >
+                    <Icon className="h-3 w-3" />
+                    {label}
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
