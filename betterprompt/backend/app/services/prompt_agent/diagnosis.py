@@ -1,13 +1,39 @@
-from app.schemas.prompt_agent import PromptControlModule, PromptDiagnosis, PromptFailureMode
+from app.schemas.prompt_agent import PromptControlModule, PromptDiagnosis, PromptFailureMode, PromptTaskType
+
+# Per-task-type most likely failure modes (ordered by risk)
+TASK_FAILURE_MAP: dict[PromptTaskType, list[PromptFailureMode]] = {
+    'algorithm_analysis': ['surface_restatement', 'pseudo_depth'],
+    'source_code_analysis': ['surface_restatement', 'uncritical_praise'],
+    'architecture_spec': ['not_executable', 'correct_but_empty'],
+    'business_insight': ['correct_but_empty', 'no_priority_judgment'],
+    'product_design': ['not_executable', 'no_priority_judgment'],
+    'data_analysis': ['surface_restatement', 'not_executable'],
+    'education_learning': ['template_tone', 'surface_restatement'],
+    'creative_marketing': ['template_tone', 'style_instability'],
+    'writing_generation': ['template_tone', 'style_instability'],
+    'general_deep_analysis': ['surface_restatement', 'template_tone', 'correct_but_empty'],
+}
+
+# Extra failure modes appended per quality_target
+QUALITY_FAILURE_EXTRA: dict[str, list[PromptFailureMode]] = {
+    'depth': ['pseudo_depth'],
+    'execution': ['not_executable'],
+    'natural': ['style_instability'],
+}
 
 
 class PromptDiagnosisEngine:
     def enrich_generate_diagnosis(self, diagnosis: PromptDiagnosis) -> PromptDiagnosis:
-        failure_modes: list[PromptFailureMode] = ['surface_restatement', 'template_tone']
-        if diagnosis.quality_target == 'execution':
-            failure_modes.append('not_executable')
-        elif diagnosis.quality_target == 'depth':
-            failure_modes.append('pseudo_depth')
+        # Start from task-type predicted failures
+        failure_modes: list[PromptFailureMode] = list(
+            TASK_FAILURE_MAP.get(diagnosis.task_type, TASK_FAILURE_MAP['general_deep_analysis'])
+        )
+
+        # Append quality-target extras (deduplicated)
+        for fm in QUALITY_FAILURE_EXTRA.get(diagnosis.quality_target, []):
+            if fm not in failure_modes:
+                failure_modes.append(fm)
+
         diagnosis.failure_modes = failure_modes
         return diagnosis
 
@@ -51,7 +77,7 @@ class PromptDiagnosisEngine:
         missing_layers = list(dict.fromkeys(missing_layers))
 
         if 'problem_redefinition' in missing_layers:
-            top_failure_mode = 'surface_restatement'
+            top_failure_mode: PromptFailureMode = 'surface_restatement'
         elif 'cognitive_drill_down' in missing_layers:
             top_failure_mode = 'pseudo_depth'
         elif 'boundary_validation' in missing_layers or 'executability' in missing_layers:

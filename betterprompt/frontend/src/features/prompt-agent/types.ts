@@ -68,6 +68,7 @@ export interface EvaluatePromptResponse {
   mode: 'evaluate';
   score_breakdown: EvaluateScoreBreakdown;
   total_score: number;
+  total_interpretation: string;
   top_issue: string;
   suggested_fix_layer: string;
 }

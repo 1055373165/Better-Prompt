@@ -102,10 +102,11 @@ class PromptAgentOrchestrator:
         )
 
     async def evaluate(self, request: EvaluatePromptRequest) -> EvaluatePromptResponse:
-        breakdown, total, top_issue, suggested_fix_layer = self.evaluate_engine.evaluate(request.target_text)
+        breakdown, total, interpretation, top_issue, suggested_fix_layer = self.evaluate_engine.evaluate(request.target_text)
         return EvaluatePromptResponse(
             score_breakdown=breakdown,
             total_score=total,
+            total_interpretation=interpretation,
             top_issue=top_issue,
             suggested_fix_layer=suggested_fix_layer,
         )

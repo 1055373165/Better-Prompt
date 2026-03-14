@@ -14,7 +14,10 @@ PromptTaskType = Literal[
     'business_insight',
     'general_deep_analysis',
     'writing_generation',
-    'other',
+    'product_design',
+    'data_analysis',
+    'education_learning',
+    'creative_marketing',
 ]
 PromptFailureMode = Literal[
     'surface_restatement',
@@ -112,6 +115,7 @@ class EvaluatePromptResponse(BaseModel):
     iteration: PromptIterationRef = Field(default_factory=PromptIterationRef)
     score_breakdown: EvaluateScoreBreakdown
     total_score: int
+    total_interpretation: str
     top_issue: str
     suggested_fix_layer: PromptControlModule
 

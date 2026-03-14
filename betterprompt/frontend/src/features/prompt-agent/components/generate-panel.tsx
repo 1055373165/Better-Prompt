@@ -18,8 +18,10 @@ interface GeneratePanelProps {
 
 const EXAMPLES = [
   '帮我写一个分析 B2B SaaS 商业模式的高质量 Prompt',
-  '帮我生成一个用于拆解智能选股策略的系统提示词',
-  '帮我写一个让模型输出产品需求分析结论的结构化 Prompt',
+  '帮我写一个 PRD 需求分析的系统提示词',
+  '帮我写一个分析用户留存数据的 Prompt',
+  '帮我写一个品牌 slogan 创作的 Prompt',
+  '帮我生成一个用于代码 Review 的系统提示词',
 ];
 
 export function GeneratePanel({

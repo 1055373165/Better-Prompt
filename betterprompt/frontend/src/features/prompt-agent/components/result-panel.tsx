@@ -169,8 +169,14 @@ export function ResultPanel({
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">建议优先修复层</div>
               <div className="mt-2 font-medium text-slate-900">{FIX_LAYER_LABELS[evaluateResult.suggested_fix_layer] ?? evaluateResult.suggested_fix_layer}</div>
             </div>
-            <div className="rounded-[1.5rem] border border-sky-200/80 bg-sky-50/80 p-4 text-slate-600">
-              建议先围绕“{FIX_LAYER_LABELS[evaluateResult.suggested_fix_layer] ?? evaluateResult.suggested_fix_layer}”修一轮，再使用 Continue Optimization 继续迭代。
+            {evaluateResult.total_interpretation && (
+              <div className=”rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4”>
+                <div className=”text-xs font-semibold uppercase tracking-[0.16em] text-slate-400”>总分解读</div>
+                <div className=”mt-2 text-sm leading-6 text-slate-700”>{evaluateResult.total_interpretation}</div>
+              </div>
+            )}
+            <div className=”rounded-[1.5rem] border border-sky-200/80 bg-sky-50/80 p-4 text-slate-600”>
+              建议先围绕”{FIX_LAYER_LABELS[evaluateResult.suggested_fix_layer] ?? evaluateResult.suggested_fix_layer}”修一轮，再使用 Continue Optimization 继续迭代。
             </div>
           </CardContent>
         </Card>
