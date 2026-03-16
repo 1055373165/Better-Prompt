@@ -35,3 +35,7 @@ class PromptAgentService:
 
     async def continue_optimization(self, request: ContinuePromptRequest) -> ContinuePromptResponse:
         return await self.orchestrator.continue_optimization(request)
+
+    async def continue_optimization_stream(self, request: ContinuePromptRequest) -> AsyncGenerator[str, None]:
+        async for chunk in self.orchestrator.continue_optimization_stream(request):
+            yield chunk

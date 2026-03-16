@@ -46,6 +46,15 @@ TASK_KEYWORD_MAP: dict[PromptTaskType, list[tuple[str, float]]] = {
         ('广告', 3), ('slogan', 3), ('推广', 2), ('传播', 2), ('内容运营', 2),
         ('社交媒体', 2), ('种草', 2), ('带货', 2), ('kol', 1.5), ('投放', 2),
     ],
+    'document_translation': [
+        ('pdf', 3), ('paper', 2), ('ebook', 2), ('ocr', 2.5), ('翻译', 2.5),
+        ('图书', 3), ('书籍', 2.5), ('论文', 2.5), ('期刊', 2), ('文档', 1.5),
+        ('中译', 3), ('中文版', 3), ('中文版本', 3), ('英译中', 3), ('本地化', 3),
+        ('双语', 3), ('对照', 3), ('对应', 1.5), ('排版', 3), ('版面', 3),
+        ('版式', 2.5), ('保真', 3), ('术语', 2.5), ('专有名词', 2),
+        ('脚注', 2), ('图注', 2), ('表格', 2), ('公式', 2), ('章节', 1.5),
+        ('页眉', 2), ('页脚', 2), ('页码', 1.5),
+    ],
     'writing_generation': [
         ('写作', 3), ('改写', 3), ('润色', 3), ('文章', 2), ('博客', 2),
         ('翻译', 2), ('摘要', 2), ('总结', 1.5), ('邮件', 2), ('报告', 1.5),
@@ -53,6 +62,20 @@ TASK_KEYWORD_MAP: dict[PromptTaskType, list[tuple[str, float]]] = {
     ],
     'general_deep_analysis': [
         ('分析', 1), ('深度', 1), ('研究', 1), ('思考', 1), ('探讨', 1),
+    ],
+}
+
+TASK_PATTERN_BONUSES: dict[PromptTaskType, list[tuple[tuple[str, ...], float]]] = {
+    'document_translation': [
+        (('pdf', '翻译'), 4),
+        (('论文', '翻译'), 3),
+        (('图书', '翻译'), 3),
+        (('英', '中'), 2.5),
+        (('对照', '一致'), 3),
+        (('排版', '一致'), 3),
+        (('版面', '保真'), 4),
+        (('术语', '一致'), 3),
+        (('脚注', '表格'), 2),
     ],
 }
 
@@ -67,6 +90,9 @@ class TaskUnderstandingEngine:
             score = 0.0
             for keyword, weight in keywords:
                 if keyword in text:
+                    score += weight
+            for pattern, weight in TASK_PATTERN_BONUSES.get(task_type, []):
+                if all(token in text for token in pattern):
                     score += weight
             scores[task_type] = score
 

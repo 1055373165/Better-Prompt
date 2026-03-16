@@ -14,6 +14,7 @@ PromptTaskType = Literal[
     'business_insight',
     'general_deep_analysis',
     'writing_generation',
+    'document_translation',
     'product_design',
     'data_analysis',
     'education_learning',
@@ -57,7 +58,7 @@ class GeneratePromptRequest(BaseModel):
     user_input: str = Field(..., min_length=1)
     show_diagnosis: bool = True
     output_preference: PromptOutputPreference = 'balanced'
-    artifact_type: PromptArtifactType = 'system_prompt'
+    artifact_type: PromptArtifactType = 'task_prompt'
     prompt_only: bool = False
     context_notes: str | None = None
 
@@ -67,7 +68,7 @@ class GeneratePromptResponse(BaseModel):
     iteration: PromptIterationRef = Field(default_factory=PromptIterationRef)
     diagnosis: PromptDiagnosis | None = None
     final_prompt: str
-    artifact_type: PromptArtifactType = 'system_prompt'
+    artifact_type: PromptArtifactType = 'task_prompt'
     applied_modules: list[PromptControlModule] = Field(default_factory=list)
     optimization_strategy: str
     optimized_input: str
@@ -124,6 +125,7 @@ class ContinuePromptRequest(BaseModel):
     previous_result: str = Field(..., min_length=1)
     optimization_goal: str = Field(..., min_length=1)
     mode: Literal['generate', 'debug', 'evaluate']
+    context_notes: str | None = None
 
 
 class ContinuePromptResponse(BaseModel):
@@ -134,3 +136,5 @@ class ContinuePromptResponse(BaseModel):
     refined_result: str
     result_label: str = '优化后版本'
     suggested_next_actions: list[str] = Field(default_factory=list)
+    generation_backend: PromptGenerateBackend = 'template'
+    generation_model: str | None = None

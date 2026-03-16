@@ -11,6 +11,7 @@ TASK_MODULE_MAP: dict[PromptTaskType, list[PromptControlModule]] = {
     'education_learning': ['problem_redefinition', 'cognitive_drill_down', 'style_control'],
     'creative_marketing': ['style_control', 'information_density', 'key_point_priority'],
     'writing_generation': ['style_control', 'information_density'],
+    'document_translation': ['problem_redefinition', 'key_point_priority', 'boundary_validation', 'executability', 'style_control'],
     'general_deep_analysis': ['problem_redefinition', 'cognitive_drill_down', 'key_point_priority', 'boundary_validation', 'style_control'],
 }
 

@@ -80,4 +80,6 @@ export interface ContinuePromptResponse {
   refined_result: string;
   result_label: string;
   suggested_next_actions: string[];
+  generation_backend: 'llm' | 'template';
+  generation_model: string | null;
 }

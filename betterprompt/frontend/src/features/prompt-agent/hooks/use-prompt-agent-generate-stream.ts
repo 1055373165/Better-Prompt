@@ -115,7 +115,7 @@ export function usePromptAgentGenerateStream(): UseStreamGenerateReturn {
             if (event.event === 'meta') {
               receivedMeta = {
                 diagnosis: (event.diagnosis as PromptDiagnosis) || null,
-                artifact_type: (event.artifact_type as PromptArtifactType) || 'system_prompt',
+                artifact_type: (event.artifact_type as PromptArtifactType) || 'task_prompt',
                 applied_modules: (event.applied_modules as string[]) || [],
                 optimization_strategy: (event.optimization_strategy as string) || '',
                 optimized_input: (event.optimized_input as string) || '',
@@ -140,7 +140,7 @@ export function usePromptAgentGenerateStream(): UseStreamGenerateReturn {
           mode: 'generate',
           diagnosis: receivedMeta?.diagnosis ?? null,
           final_prompt: accumulated,
-          artifact_type: receivedMeta?.artifact_type ?? 'system_prompt',
+          artifact_type: receivedMeta?.artifact_type ?? 'task_prompt',
           applied_modules: receivedMeta?.applied_modules ?? [],
           optimization_strategy: receivedMeta?.optimization_strategy ?? '',
           optimized_input: receivedMeta?.optimized_input ?? '',

@@ -64,4 +64,29 @@ async def evaluate_prompt(request: EvaluatePromptRequest, db: DbSession) -> Eval
 @router.post('/continue', response_model=ContinuePromptResponse)
 async def continue_optimization(request: ContinuePromptRequest, db: DbSession) -> ContinuePromptResponse:
     service = PromptAgentService(db)
-    return await service.continue_optimization(request)
+    try:
+        return await service.continue_optimization(request)
+    except PromptLLMConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except PromptLLMRequestError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+
+
+@router.post('/continue/stream')
+async def continue_optimization_stream(request: ContinuePromptRequest, db: DbSession):
+    service = PromptAgentService(db)
+    return StreamingResponse(
+        service.continue_optimization_stream(request),
+        media_type='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
+        },
+    )

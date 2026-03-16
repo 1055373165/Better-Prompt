@@ -6,9 +6,21 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   source_code_analysis: '源码分析',
   architecture_spec: '架构方案',
   business_insight: '商业洞察',
+  product_design: '产品设计',
+  data_analysis: '数据分析',
+  education_learning: '教学学习',
+  creative_marketing: '创意营销',
+  document_translation: '文档翻译',
   general_deep_analysis: '通用深度分析',
   writing_generation: '写作生成',
   other: '其他',
+};
+
+const OUTPUT_TYPE_LABELS: Record<string, string> = {
+  system_prompt: '系统提示词',
+  task_prompt: '任务 Prompt',
+  analysis_workflow: '分析工作流 Prompt',
+  conversation_prompt: '对话协作 Prompt',
 };
 
 const QUALITY_TARGET_LABELS: Record<string, string> = {
@@ -42,7 +54,7 @@ export function DiagnosisCard({ diagnosis }: { diagnosis: PromptDiagnosis }) {
         </div>
         <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">输出产物</div>
-          <div className="mt-2 font-medium text-slate-900">{diagnosis.output_type}</div>
+          <div className="mt-2 font-medium text-slate-900">{OUTPUT_TYPE_LABELS[diagnosis.output_type] ?? diagnosis.output_type}</div>
         </div>
         <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">质量目标</div>

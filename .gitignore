@@ -13,3 +13,7 @@ __pycache__/
 # Node
 node_modules/
 dist/
+
+# Runtime state
+betterprompt/.run/*.pid
+betterprompt/.run/dev-ports.env

@@ -11,6 +11,7 @@ TASK_FAILURE_MAP: dict[PromptTaskType, list[PromptFailureMode]] = {
     'education_learning': ['template_tone', 'surface_restatement'],
     'creative_marketing': ['template_tone', 'style_instability'],
     'writing_generation': ['template_tone', 'style_instability'],
+    'document_translation': ['not_executable', 'correct_but_empty', 'style_instability'],
     'general_deep_analysis': ['surface_restatement', 'template_tone', 'correct_but_empty'],
 }
 

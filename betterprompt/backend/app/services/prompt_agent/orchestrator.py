@@ -159,7 +159,12 @@ class PromptAgentOrchestrator:
         )
 
     async def continue_optimization(self, request: ContinuePromptRequest) -> ContinuePromptResponse:
-        refined_result = self.continue_engine.refine(request)
+        llm_client = get_default_llm_client()
+        system_prompt, user_prompt = self.continue_engine.build_messages(request)
+        refined_result = await llm_client.generate_text(system_prompt=system_prompt, user_prompt=user_prompt)
+        generation_backend = 'llm'
+        generation_model = llm_client.model_name
+
         if request.mode == 'generate':
             actions = self.result_formatter.continue_actions_for_generate()
         elif request.mode == 'debug':
@@ -171,4 +176,44 @@ class PromptAgentOrchestrator:
             optimization_goal=request.optimization_goal,
             refined_result=refined_result,
             suggested_next_actions=actions,
+            generation_backend=generation_backend,
+            generation_model=generation_model,
         )
+
+    async def continue_optimization_stream(self, request: ContinuePromptRequest) -> AsyncGenerator[str, None]:
+        if request.mode == 'generate':
+            actions = self.result_formatter.continue_actions_for_generate()
+        elif request.mode == 'debug':
+            actions = self.result_formatter.continue_actions_for_debug()
+        else:
+            actions = self.result_formatter.continue_actions_for_evaluate()
+
+        meta = {
+            'event': 'meta',
+            'source_mode': request.mode,
+            'optimization_goal': request.optimization_goal,
+            'result_label': '优化后版本',
+            'suggested_next_actions': actions,
+        }
+        yield f"data: {json.dumps(meta, ensure_ascii=False)}\n\n"
+
+        try:
+            llm_client = get_default_llm_client()
+        except PromptLLMConfigurationError as exc:
+            error_event = {'event': 'error', 'detail': str(exc)}
+            yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+            return
+
+        system_prompt, user_prompt = self.continue_engine.build_messages(request)
+
+        try:
+            async for chunk in llm_client.generate_text_stream(system_prompt=system_prompt, user_prompt=user_prompt):
+                chunk_event = {'event': 'chunk', 'content': chunk}
+                yield f"data: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+        except Exception as exc:  # noqa: BLE001 - surface upstream errors as SSE payloads
+            error_event = {'event': 'error', 'detail': str(exc)}
+            yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
+            return
+
+        done_event = {'event': 'done', 'generation_backend': 'llm', 'generation_model': llm_client.model_name}
+        yield f"data: {json.dumps(done_event, ensure_ascii=False)}\n\n"

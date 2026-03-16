@@ -94,11 +94,18 @@ npm install
 npm run dev
 ```
 
-By default the frontend talks to `/api/v1`. During local development, Vite proxies `/api` to `http://127.0.0.1:8000`.
+By default the frontend talks to `/api/v1`. During local development, Vite proxies `/api` to `http://127.0.0.1:8000`; when you use `./dev` or `./scripts/betterprompt-dev.sh`, the proxy target follows the backend port selected by the script.
 
 ### 3. One-Command Dev Workflow
 
 If you want a single command to bring both services up or down:
+
+```bash
+./dev up
+./dev down
+```
+
+This root shortcut forwards to the full script below:
 
 ```bash
 ./scripts/betterprompt-dev.sh start
@@ -106,6 +113,14 @@ If you want a single command to bring both services up or down:
 ```
 
 The script also supports:
+
+```bash
+./dev restart
+./dev status
+./dev logs
+```
+
+Equivalent direct script commands:
 
 ```bash
 ./scripts/betterprompt-dev.sh restart
@@ -118,7 +133,7 @@ It starts:
 - FastAPI backend on `127.0.0.1:8000`
 - Vite frontend on `127.0.0.1:5173`
 
-Runtime logs are written to `betterprompt/.run/logs/`. The script expects backend dependencies, frontend dependencies, and `betterprompt/backend/.env` to be ready first.
+If `8000` or `5173` is already occupied, the script automatically picks the next available port instead of failing. Runtime logs are written to `betterprompt/.run/logs/`, and the selected ports are recorded in `betterprompt/.run/dev-ports.env`. The script expects backend dependencies, frontend dependencies, and `betterprompt/backend/.env` to be ready first.
 
 ### 4. Open the App
 
