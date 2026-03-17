@@ -17,3 +17,4 @@ dist/
 # Runtime state
 betterprompt/.run/*.pid
 betterprompt/.run/dev-ports.env
+betterprompt/backend/.venv
