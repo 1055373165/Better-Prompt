@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 PromptSessionEntryMode = Literal['generate', 'debug', 'evaluate']
 PromptSessionStatus = Literal['active', 'archived']
+PromptSessionRunKind = Literal['manual_workbench', 'preset_run']
 
 
 class CreatePromptSessionRequest(BaseModel):
@@ -19,6 +20,9 @@ class PromptSessionSummary(BaseModel):
     title: str
     entry_mode: PromptSessionEntryMode
     status: PromptSessionStatus
+    run_kind: PromptSessionRunKind | None = None
+    run_preset_id: str | None = None
+    workflow_recipe_version_id: str | None = None
     latest_iteration_id: str | None = None
     created_at: datetime
     updated_at: datetime

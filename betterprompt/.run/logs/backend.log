@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 INFO:     Started server process [48661]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
@@ -7,3 +8,11 @@ INFO:     127.0.0.1:57006 - "POST /api/v1/prompt-agent/generate/stream HTTP/1.1"
 INFO:     127.0.0.1:53845 - "POST /api/v1/prompt-agent/generate/stream HTTP/1.1" 200 OK
 INFO:     127.0.0.1:56852 - "POST /api/v1/prompt-agent/generate/stream HTTP/1.1" 200 OK
 INFO:     127.0.0.1:57488 - "POST /api/v1/prompt-agent/generate/stream HTTP/1.1" 200 OK
+=======
+INFO:     Started server process [52455]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
+INFO:     127.0.0.1:62218 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62297 - "POST /api/v1/prompt-agent/generate/stream HTTP/1.1" 200 OK
+>>>>>>> 640309379796768a1d5f26b72c42bcdc54ffd44c

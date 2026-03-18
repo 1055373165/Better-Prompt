@@ -1,4 +1,12 @@
 
+<<<<<<< HEAD
   VITE v5.4.21  ready in 175 ms
 
   ➜  Local:   http://127.0.0.1:5173/
+=======
+  VITE v5.4.21  ready in 154 ms
+
+  ➜  Local:   http://127.0.0.1:5174/
+(node:52489) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+>>>>>>> 640309379796768a1d5f26b72c42bcdc54ffd44c

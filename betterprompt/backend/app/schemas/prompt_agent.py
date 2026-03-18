@@ -54,7 +54,16 @@ class PromptIterationRef(BaseModel):
     iteration_id: str | None = None
 
 
-class GeneratePromptRequest(BaseModel):
+class WorkflowAssetRefs(BaseModel):
+    session_id: str | None = None
+    source_asset_version_id: str | None = None
+    context_pack_version_ids: list[str] = Field(default_factory=list)
+    evaluation_profile_version_id: str | None = None
+    workflow_recipe_version_id: str | None = None
+    run_preset_id: str | None = None
+
+
+class GeneratePromptRequest(WorkflowAssetRefs):
     user_input: str = Field(..., min_length=1)
     show_diagnosis: bool = True
     output_preference: PromptOutputPreference = 'balanced'
@@ -78,7 +87,7 @@ class GeneratePromptResponse(BaseModel):
     generation_model: str | None = None
 
 
-class DebugPromptRequest(BaseModel):
+class DebugPromptRequest(WorkflowAssetRefs):
     original_task: str = Field(..., min_length=1)
     current_prompt: str = Field(..., min_length=1)
     current_output: str = Field(..., min_length=1)
@@ -96,7 +105,7 @@ class DebugPromptResponse(BaseModel):
     fixed_prompt: str
 
 
-class EvaluatePromptRequest(BaseModel):
+class EvaluatePromptRequest(WorkflowAssetRefs):
     target_text: str = Field(..., min_length=1)
     target_type: Literal['prompt', 'output']
 
@@ -121,7 +130,8 @@ class EvaluatePromptResponse(BaseModel):
     suggested_fix_layer: PromptControlModule
 
 
-class ContinuePromptRequest(BaseModel):
+class ContinuePromptRequest(WorkflowAssetRefs):
+    parent_iteration_id: str | None = None
     previous_result: str = Field(..., min_length=1)
     optimization_goal: str = Field(..., min_length=1)
     mode: Literal['generate', 'debug', 'evaluate']

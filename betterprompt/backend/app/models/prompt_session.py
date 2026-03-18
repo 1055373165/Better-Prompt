@@ -13,6 +13,13 @@ class PromptSession(Base):
     title: Mapped[str] = mapped_column(String(255))
     entry_mode: Mapped[str] = mapped_column(String(32), default='generate')
     status: Mapped[str] = mapped_column(String(32), default='active')
+    run_kind: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    run_preset_id: Mapped[str | None] = mapped_column(ForeignKey('run_presets.id'), nullable=True, index=True)
+    workflow_recipe_version_id: Mapped[str | None] = mapped_column(
+        ForeignKey('workflow_recipe_versions.id'),
+        nullable=True,
+        index=True,
+    )
     latest_iteration_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

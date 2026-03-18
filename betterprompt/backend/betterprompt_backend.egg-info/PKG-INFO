@@ -3,6 +3,8 @@ Name: betterprompt-backend
 Version: 0.1.0
 Summary: BetterPrompt backend
 Requires-Python: >=3.11
+Requires-Dist: alembic>=1.13.2
+Requires-Dist: asyncpg>=0.29.0
 Requires-Dist: fastapi>=0.115.5
 Requires-Dist: uvicorn[standard]>=0.32.0
 Requires-Dist: pydantic>=2.9.2

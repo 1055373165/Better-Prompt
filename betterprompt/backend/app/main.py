@@ -1,12 +1,12 @@
+from app.core import load_runtime_env
+load_runtime_env()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.prompt_agent import router as prompt_agent_router
-from app.core import load_runtime_env
 from app.api.v1.prompt_sessions import router as prompt_sessions_router
 from app.db.init_db import init_db
-
-load_runtime_env()
 
 app = FastAPI(title='BetterPrompt Backend', version='0.1.0')
 
