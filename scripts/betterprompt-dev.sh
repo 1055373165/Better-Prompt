@@ -10,6 +10,8 @@ RUN_DIR="$APP_DIR/.run"
 LOG_DIR="$RUN_DIR/logs"
 FRONTEND_BIN="$FRONTEND_DIR/node_modules/.bin/vite"
 PORTS_FILE="$RUN_DIR/dev-ports.env"
+BACKEND_PYTHON_BIN="$BACKEND_DIR/.venv/bin/python"
+BACKEND_UVICORN_BIN="$BACKEND_DIR/.venv/bin/uvicorn"
 
 BACKEND_PID_FILE="$RUN_DIR/backend.pid"
 FRONTEND_PID_FILE="$RUN_DIR/frontend.pid"
@@ -18,11 +20,14 @@ FRONTEND_LOG="$LOG_DIR/frontend.log"
 
 DEFAULT_BACKEND_PORT="${BETTERPROMPT_DEV_BACKEND_PORT:-8000}"
 DEFAULT_FRONTEND_PORT="${BETTERPROMPT_DEV_FRONTEND_PORT:-5173}"
+MIN_BACKEND_PYTHON_MINOR=11
+MIN_NODE_MAJOR=18
 
 BACKEND_PORT="$DEFAULT_BACKEND_PORT"
 FRONTEND_PORT="$DEFAULT_FRONTEND_PORT"
 BACKEND_HEALTH_URL=""
 FRONTEND_URL=""
+NODE_BIN=""
 
 mkdir -p "$LOG_DIR"
 
@@ -81,6 +86,83 @@ clear_runtime_config() {
 port_in_use() {
   local port="$1"
   lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1
+}
+
+
+extract_major_version() {
+  local version="$1"
+  version="${version#v}"
+  echo "${version%%.*}"
+}
+
+
+backend_python_version() {
+  "$BACKEND_PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null
+}
+
+
+backend_python_is_compatible() {
+  "$BACKEND_PYTHON_BIN" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' >/dev/null 2>&1
+}
+
+
+node_version() {
+  local node_bin="$1"
+  "$node_bin" --version 2>/dev/null
+}
+
+
+is_node_compatible() {
+  local node_bin="$1"
+  local version
+  local major
+
+  version="$(node_version "$node_bin")" || return 1
+  major="$(extract_major_version "$version")"
+
+  [[ "$major" =~ ^[0-9]+$ ]] || return 1
+  ((major >= MIN_NODE_MAJOR))
+}
+
+
+resolve_node_bin() {
+  local candidate
+
+  if [[ -n "${BETTERPROMPT_DEV_NODE_BIN:-}" ]]; then
+    candidate="$BETTERPROMPT_DEV_NODE_BIN"
+    if [[ ! -x "$candidate" ]]; then
+      echo "BETTERPROMPT_DEV_NODE_BIN is not executable: $candidate"
+      exit 1
+    fi
+    if ! is_node_compatible "$candidate"; then
+      echo "BETTERPROMPT_DEV_NODE_BIN must point to Node.js ${MIN_NODE_MAJOR}+ but found $(node_version "$candidate")."
+      exit 1
+    fi
+    NODE_BIN="$candidate"
+    return 0
+  fi
+
+  if command -v node >/dev/null 2>&1; then
+    candidate="$(command -v node)"
+    if is_node_compatible "$candidate"; then
+      NODE_BIN="$candidate"
+      return 0
+    fi
+  fi
+
+  for candidate in \
+    /opt/homebrew/bin/node \
+    /usr/local/bin/node \
+    /opt/homebrew/opt/node/bin/node \
+    /usr/local/opt/node/bin/node
+  do
+    if [[ -x "$candidate" ]] && is_node_compatible "$candidate"; then
+      NODE_BIN="$candidate"
+      return 0
+    fi
+  done
+
+  return 1
 }
 
 
@@ -189,8 +271,31 @@ spawn_service() {
 
 
 ensure_backend_ready() {
-  if [[ ! -x "$BACKEND_DIR/.venv/bin/uvicorn" ]]; then
-    echo "Missing backend virtualenv. Expected: $BACKEND_DIR/.venv/bin/uvicorn"
+  if [[ ! -x "$BACKEND_PYTHON_BIN" ]]; then
+    echo "Missing backend virtualenv. Expected: $BACKEND_PYTHON_BIN"
+    echo "Create it with:"
+    echo "  cd $BACKEND_DIR"
+    echo "  uv venv --python python3.11 .venv"
+    echo "  uv pip install --python .venv/bin/python -e ."
+    exit 1
+  fi
+
+  local backend_python
+  backend_python="$(backend_python_version)"
+  if [[ -z "$backend_python" ]] || ! backend_python_is_compatible; then
+    echo "Backend virtualenv must use Python 3.${MIN_BACKEND_PYTHON_MINOR}+ but found ${backend_python:-unknown}."
+    echo "Recreate it with:"
+    echo "  cd $BACKEND_DIR"
+    echo "  uv venv --clear --python python3.11 .venv"
+    echo "  uv pip install --python .venv/bin/python -e ."
+    exit 1
+  fi
+
+  if [[ ! -x "$BACKEND_UVICORN_BIN" ]]; then
+    echo "Backend dependencies are missing. Expected: $BACKEND_UVICORN_BIN"
+    echo "Install them with:"
+    echo "  cd $BACKEND_DIR"
+    echo "  uv pip install --python .venv/bin/python -e ."
     exit 1
   fi
 
@@ -202,13 +307,19 @@ ensure_backend_ready() {
 
 
 ensure_frontend_ready() {
-  if ! command -v npm >/dev/null 2>&1; then
-    echo "npm is required but was not found in PATH."
+  if [[ ! -x "$FRONTEND_BIN" ]]; then
+    echo "Frontend dependencies are missing. Run: cd $FRONTEND_DIR && npm install"
     exit 1
   fi
 
-  if [[ ! -x "$FRONTEND_BIN" ]]; then
-    echo "Frontend dependencies are missing. Run: cd $FRONTEND_DIR && npm install"
+  if ! resolve_node_bin; then
+    local current_version="missing"
+    if command -v node >/dev/null 2>&1; then
+      current_version="$(node --version 2>/dev/null || echo unknown)"
+    fi
+    echo "A Node.js ${MIN_NODE_MAJOR}+ runtime is required to start the frontend."
+    echo "Current shell node: $current_version"
+    echo "Install a newer Node.js, or set BETTERPROMPT_DEV_NODE_BIN=/path/to/node"
     exit 1
   fi
 }
@@ -233,7 +344,7 @@ start_backend() {
     "$BACKEND_DIR" \
     "$BACKEND_PID_FILE" \
     "$BACKEND_LOG" \
-    .venv/bin/uvicorn \
+    "$BACKEND_UVICORN_BIN" \
     app.main:app \
     --host 127.0.0.1 \
     --port "$BACKEND_PORT"
@@ -257,10 +368,15 @@ start_frontend() {
   refresh_urls
   save_runtime_config
 
+  if [[ "$(command -v node 2>/dev/null || true)" != "$NODE_BIN" ]]; then
+    echo "Using Node runtime for frontend: $(node_version "$NODE_BIN") ($NODE_BIN)"
+  fi
+
   spawn_service \
     "$FRONTEND_DIR" \
     "$FRONTEND_PID_FILE" \
     "$FRONTEND_LOG" \
+    PATH="$(dirname "$NODE_BIN"):$PATH" \
     BETTERPROMPT_BACKEND_PORT="$BACKEND_PORT" \
     BETTERPROMPT_FRONTEND_PORT="$FRONTEND_PORT" \
     "$FRONTEND_BIN" \

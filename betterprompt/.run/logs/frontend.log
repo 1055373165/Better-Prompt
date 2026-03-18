@@ -1,5 +1,6 @@
 
-  VITE v5.4.21  ready in 323 ms
+  VITE v5.4.21  ready in 154 ms
 
-  ➜  Local:   http://127.0.0.1:5173/
-4:40:27 PM [vite] hmr update /src/features/prompt-agent/index.tsx, /src/styles/globals.css
+  ➜  Local:   http://127.0.0.1:5174/
+(node:52489) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)

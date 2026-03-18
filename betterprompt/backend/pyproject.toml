@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "BetterPrompt backend"
 requires-python = ">=3.11"
 dependencies = [
+  "alembic>=1.13.2",
+  "asyncpg>=0.29.0",
   "fastapi>=0.115.5",
   "uvicorn[standard]>=0.32.0",
   "pydantic>=2.9.2",
@@ -15,3 +17,6 @@ dependencies = [
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
