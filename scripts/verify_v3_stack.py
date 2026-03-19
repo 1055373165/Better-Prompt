@@ -112,6 +112,20 @@ def run_http_smoke(ports: dict[str, int]) -> dict[str, str]:
             },
         },
     )
+    workflow_recipe = http_request(
+        'POST',
+        f'{backend_base}/workflow-recipes',
+        payload={
+            'name': f'Workspace Recipe {smoke_suffix}',
+            'description': 'Created by verify_v3_stack.py',
+            'domain_hint': 'workspace',
+            'definition': {
+                'steps': [
+                    {'mode': 'debug', 'label': 'workspace refinement'},
+                ],
+            },
+        },
+    )
     report = http_request(
         'POST',
         f"{backend_base}/domain-workspaces/{workspace['id']}/reports",
@@ -184,12 +198,41 @@ def run_http_smoke(ports: dict[str, int]) -> dict[str, str]:
             'current_output': 'Looks good overall.',
             'domain_workspace_id': workspace['id'],
             'subject_id': subject['id'],
+            'workflow_recipe_version_id': workflow_recipe['current_version']['id'],
         },
     )
     ensure(debug_response['mode'] == 'debug', 'workspace debug should return debug mode')
     ensure(debug_response['iteration']['session_id'], 'workspace debug should persist session_id')
     ensure(debug_response['iteration']['iteration_id'], 'workspace debug should persist iteration_id')
     ensure(debug_response['fixed_prompt'], 'workspace debug should return a fixed_prompt')
+
+    sourced_report = http_request(
+        'POST',
+        f"{backend_base}/research-reports/{report['id']}/versions",
+        payload={
+            'content': {
+                'thesis': 'Workspace report sourced from prompt-agent debug',
+                'source_uri': source['canonical_uri'],
+                'notes': ['debug-linked'],
+            },
+            'source_session_id': debug_response['iteration']['session_id'],
+            'source_iteration_id': debug_response['iteration']['iteration_id'],
+            'summary_text': 'v3 sourced from workspace debug',
+            'confidence_score': 0.91,
+        },
+    )
+    ensure(
+        sourced_report['latest_version']['version_number'] == 3,
+        'report version should increment to v3 after sourcing from prompt-agent debug',
+    )
+    ensure(
+        sourced_report['latest_version']['source_session_id'] == debug_response['iteration']['session_id'],
+        'report latest version should preserve source_session_id',
+    )
+    ensure(
+        sourced_report['latest_version']['source_iteration_id'] == debug_response['iteration']['iteration_id'],
+        'report latest version should preserve source_iteration_id',
+    )
 
     session_query = urlencode(
         {
@@ -210,6 +253,18 @@ def run_http_smoke(ports: dict[str, int]) -> dict[str, str]:
         'session summary should preserve domain_workspace_id',
     )
     ensure(matching_summary['subject_id'] == subject['id'], 'session summary should preserve subject_id')
+    ensure(
+        matching_summary['workflow_recipe_version_id'] == workflow_recipe['current_version']['id'],
+        'session summary should preserve workflow_recipe_version_id',
+    )
+    ensure(
+        matching_summary['workflow_recipe_name'] == workflow_recipe['name'],
+        'session summary should expose workflow_recipe_name',
+    )
+    ensure(
+        matching_summary['workflow_recipe_version_number'] == workflow_recipe['current_version']['version_number'],
+        'session summary should expose workflow_recipe_version_number',
+    )
 
     session_detail = http_request(
         'GET',
@@ -221,6 +276,48 @@ def run_http_smoke(ports: dict[str, int]) -> dict[str, str]:
         'session detail should preserve domain_workspace_id',
     )
     ensure(session_detail['subject_id'] == subject['id'], 'session detail should preserve subject_id')
+    ensure(
+        session_detail['workflow_recipe_name'] == workflow_recipe['name'],
+        'session detail should expose workflow_recipe_name',
+    )
+
+    report_detail = http_request('GET', f"{backend_base}/research-reports/{report['id']}")
+    ensure(
+        report_detail['latest_version']['version_number'] == 3,
+        'report detail should surface the sourced latest version',
+    )
+    ensure(
+        report_detail['latest_version']['source_session_id'] == debug_response['iteration']['session_id'],
+        'report detail should surface source_session_id for workspace quick links',
+    )
+    ensure(
+        report_detail['latest_version']['source_iteration_id'] == debug_response['iteration']['iteration_id'],
+        'report detail should surface source_iteration_id for workspace quick links',
+    )
+
+    reports = http_request(
+        'GET',
+        f"{backend_base}/domain-workspaces/{workspace['id']}/reports?{urlencode({'subject_id': subject['id']})}",
+    )
+    ensure(len(reports['items']) == 1, 'workspace report list should include the created report')
+    ensure(
+        reports['items'][0]['latest_version']['version_number'] == 3,
+        'report list should surface the sourced latest version',
+    )
+
+    versions = http_request('GET', f"{backend_base}/research-reports/{report['id']}/versions")
+    ensure(
+        [item['version_number'] for item in versions['items']] == [3, 2, 1],
+        'report versions should be returned newest-first after sourced version creation',
+    )
+    ensure(
+        versions['items'][0]['source_session_id'] == debug_response['iteration']['session_id'],
+        'report versions should preserve source_session_id on the newest version',
+    )
+    ensure(
+        versions['items'][0]['source_iteration_id'] == debug_response['iteration']['iteration_id'],
+        'report versions should preserve source_iteration_id on the newest version',
+    )
 
     workspace_query = urlencode(
         {

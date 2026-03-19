@@ -68,6 +68,8 @@ def http_request(
         raise RuntimeError(f'{method} {url} failed with {exc.code}: {detail}') from exc
     except URLError as exc:
         raise RuntimeError(f'{method} {url} failed: {exc.reason}') from exc
+    except TimeoutError as exc:
+        raise RuntimeError(f'{method} {url} failed: timed out') from exc
 
 
 def wait_for_stack() -> tuple[dict[str, int], bool]:
@@ -109,9 +111,19 @@ def _find_healthy_backend_port() -> int | None:
     for port in _candidate_ports('BETTERPROMPT_VERIFY_BACKEND_PORT', 'backend', [8000, 8001, 8002, 8003]):
         try:
             backend_health = http_request('GET', f'http://127.0.0.1:{port}/api/v1/health', timeout=2.0)
+            context_pack_list = http_request(
+                'GET',
+                f'http://127.0.0.1:{port}/api/v1/context-packs?page=1&page_size=1',
+                timeout=2.0,
+            )
         except RuntimeError:
             continue
-        if isinstance(backend_health, dict) and backend_health.get('status') == 'ok':
+        if (
+            isinstance(backend_health, dict)
+            and backend_health.get('status') == 'ok'
+            and isinstance(context_pack_list, dict)
+            and isinstance(context_pack_list.get('items'), list)
+        ):
             return port
     return None
 

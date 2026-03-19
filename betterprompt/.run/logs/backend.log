@@ -1,32 +1,18 @@
-INFO:     Started server process [85095]
+INFO:     Started server process [98127]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8002 (Press CTRL+C to quit)
-INFO:     127.0.0.1:60479 - "GET /api/v1/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60499 - "GET /api/v1/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60500 - "GET /api/v1/agent-monitors?page=1&page_size=1 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60503 - "POST /api/v1/domain-workspaces HTTP/1.1" 201 Created
-INFO:     127.0.0.1:60504 - "POST /api/v1/domain-workspaces/1419e182-0a77-4755-ac40-b455b1ee68bb/subjects HTTP/1.1" 201 Created
-INFO:     127.0.0.1:60505 - "POST /api/v1/domain-workspaces/1419e182-0a77-4755-ac40-b455b1ee68bb/sources HTTP/1.1" 201 Created
-INFO:     127.0.0.1:60509 - "POST /api/v1/workflow-recipes HTTP/1.1" 201 Created
-INFO:     127.0.0.1:60510 - "POST /api/v1/run-presets HTTP/1.1" 201 Created
-INFO:     127.0.0.1:60511 - "POST /api/v1/watchlists HTTP/1.1" 201 Created
-INFO:     127.0.0.1:60512 - "PATCH /api/v1/watchlists/63eb5e96-21c9-4417-ac8d-c74ffe14584c HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60513 - "POST /api/v1/watchlists/63eb5e96-21c9-4417-ac8d-c74ffe14584c/items HTTP/1.1" 201 Created
-INFO:     127.0.0.1:60515 - "GET /api/v1/watchlists/63eb5e96-21c9-4417-ac8d-c74ffe14584c/items HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60516 - "GET /api/v1/watchlists?workspace_id=1419e182-0a77-4755-ac40-b455b1ee68bb HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60517 - "POST /api/v1/agent-monitors HTTP/1.1" 201 Created
-INFO:     127.0.0.1:60518 - "PATCH /api/v1/agent-monitors/e5011e64-ef7e-4236-aeef-5329edae95e6 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60519 - "GET /api/v1/agent-monitors?workspace_id=1419e182-0a77-4755-ac40-b455b1ee68bb&subject_id=13ce6a0a-beb7-418a-9bca-b6e9f0f86e04 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60520 - "POST /api/v1/agent-monitors/e5011e64-ef7e-4236-aeef-5329edae95e6/trigger HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60523 - "POST /api/v1/agent-monitors/e5011e64-ef7e-4236-aeef-5329edae95e6/trigger HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60524 - "GET /api/v1/agent-monitors/e5011e64-ef7e-4236-aeef-5329edae95e6/runs HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60525 - "GET /api/v1/agent-runs/29cca827-cba8-4c65-904e-1ed848763341 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60526 - "GET /api/v1/prompt-sessions?run_kind=agent_run&domain_workspace_id=1419e182-0a77-4755-ac40-b455b1ee68bb&subject_id=13ce6a0a-beb7-418a-9bca-b6e9f0f86e04&agent_monitor_id=e5011e64-ef7e-4236-aeef-5329edae95e6&trigger_kind=manual HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60527 - "GET /api/v1/prompt-sessions/34421e7d-5b21-4c55-b781-0c80c0558d0d HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60528 - "GET /api/v1/agent-alerts?workspace_id=1419e182-0a77-4755-ac40-b455b1ee68bb&subject_id=13ce6a0a-beb7-418a-9bca-b6e9f0f86e04 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60530 - "GET /api/v1/freshness-records?workspace_id=1419e182-0a77-4755-ac40-b455b1ee68bb&subject_id=13ce6a0a-beb7-418a-9bca-b6e9f0f86e04&source_id=6fec8e76-ed92-4dcb-971b-6103dbc17b4c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62850 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62862 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62863 - "GET /api/v1/context-packs?page=1&page_size=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62868 - "POST /api/v1/context-packs HTTP/1.1" 201 Created
+INFO:     127.0.0.1:62869 - "POST /api/v1/evaluation-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:62870 - "POST /api/v1/workflow-recipes HTTP/1.1" 201 Created
+INFO:     127.0.0.1:62871 - "POST /api/v1/run-presets HTTP/1.1" 201 Created
+INFO:     127.0.0.1:62872 - "POST /api/v1/run-presets/f9f1d4b0-ad5a-46b4-b2f1-b877664309f2/launch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62873 - "GET /api/v1/prompt-sessions?run_kind=preset_run&run_preset_id=f9f1d4b0-ad5a-46b4-b2f1-b877664309f2&workflow_recipe_version_id=84662b7b-6580-451c-ab7c-131ae1d60869 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62874 - "GET /api/v1/prompt-sessions/5d30c45b-46eb-49fa-9a0c-ce7a0ca57807 HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [85095]
+INFO:     Finished server process [98127]

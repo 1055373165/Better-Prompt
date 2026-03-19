@@ -357,6 +357,7 @@ V4  Freshness-Aware Agents
 - V2 全栈自动验收脚本通过
   - [verify_v2_stack.py](/Users/smy/project/better-prompt/scripts/verify_v2_stack.py)
   - 已确认 `dev stack / backend health / frontend load / V2 assets create / preset launch / prompt_sessions provenance`
+  - 已确认健康栈发现会要求 `context-packs` 契约可用，避免误连只暴露 `/health` 的旧 backend
 - V3 Alembic migration 通过
   - `cd betterprompt/backend && .venv/bin/alembic -c alembic.ini upgrade head`
   - 已确认 `20260318_0003_v3_domain_workspaces.py` 可接在 V2 之后执行
@@ -392,6 +393,8 @@ V4  Freshness-Aware Agents
   - [verify_v3_stack.py](/Users/smy/project/better-prompt/scripts/verify_v3_stack.py)
   - 已确认健康本地栈发现会优先命中真正暴露 `domain-workspaces` 的 V3 backend
   - 已确认 `workspace -> subject -> source -> report -> report version -> prompt-agent/debug -> prompt-sessions`
+  - 已确认 `workspace_run` session summary/detail 会返回 `workflow_recipe_name / workflow_recipe_version_number`
+  - 已确认 `research report latest version / versions list` 会回传 `source_session_id / source_iteration_id`
   - 已确认 frontend `workspaces / prompt-agent / sessions` workspace deeplink 路径都能返回页面
 - V4 schema foundation 通过
   - 已新增 `watchlists / watchlist_items / agent_monitors / agent_runs / agent_alerts / freshness_records`
@@ -401,6 +404,8 @@ V4  Freshness-Aware Agents
 - V4 backend unittest 通过
   - `cd betterprompt/backend && PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -p 'test_*.py'`
   - 已确认 V4 metadata tables、runtime CRUD/list contracts 与 prompt-session agent provenance round-trip
+  - 已补 [test_prompt_session_provenance.py](/Users/smy/project/better-prompt/betterprompt/backend/tests/test_prompt_session_provenance.py)
+  - 已确认 `prompt-sessions` 会在 `manual_workbench / workspace_run / agent_run` 三条链路下返回稳定的 `preset / recipe / workspace / agent` provenance 字段与过滤行为
 - V4 backend compileall 通过
   - `cd betterprompt/backend && PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m compileall app tests`
 - V4 Alembic migration 通过
@@ -414,6 +419,7 @@ V4  Freshness-Aware Agents
   - [verify_v4_backend_contracts.py](/Users/smy/project/better-prompt/scripts/verify_v4_backend_contracts.py)
   - 已确认 `workspace -> subject -> watchlist -> monitor -> agent run -> prompt sessions` 真实接口链路
   - 已确认 `watchlists / agent-monitors / agent-runs / agent-alerts / freshness-records` 路径均可返回有效契约响应
+  - 已确认 `prompt-sessions` 的 `agent_run` summary/detail 会返回 `run_preset_name / workflow_recipe_name / workflow_recipe_version_number / trigger_kind`
 - V4 runtime trigger design 通过
   - 已让 `agent_monitor` 手动 trigger 真实执行 `run_preset -> prompt_agent`
   - 已确认 `agent_run` 会回填 `running/completed/failed`、`prompt_session_id`、`prompt_iteration_id`
@@ -424,11 +430,22 @@ V4  Freshness-Aware Agents
 
 当前真正进入开发阶段的点是：
 
-- `V3` 更完整的前后端集成 / 回归测试
+- `V3 / V4` 更完整的前后端集成 / 回归测试与可复跑验收收口
 
 当前还没有完成的部分：
 
-- 暂无阻塞 `V2 / V3` 主链路的未完成项
+- `prompt-sessions` 还缺一层真正的 API route 级回归
+- `Workspaces / Sessions / Prompt Agent` 还缺浏览器级 live-stack smoke 自动化
+
+最近一轮已经收口并验证过的点：
+
+- `prompt-sessions` service 层现在已有独立跨链路回归
+  - `manual_workbench / workspace_run / agent_run`
+  - `preset / recipe / workspace / agent` provenance summary、detail、filters
+- `verify_v2_stack.py / verify_v3_stack.py / verify_v4_backend_contracts.py` 都已在本地真实跑通
+- `verify_v2_stack.py` 已修复健康栈误连旧 backend 的问题
+- `verify_v3_stack.py` 已升级为验证 `workspace debug -> sourced report version -> prompt-sessions`
+- `verify_v4_backend_contracts.py` 已升级为验证 `agent_run` 的 `preset / recipe / trigger` provenance
 
 ## Next Actions
 
@@ -436,29 +453,37 @@ V4  Freshness-Aware Agents
 
 下一位模型接手时，最应该继续的是：
 
-1. `V3` 补更完整的前后端集成 / 回归测试
-2. 只在产品目标明确后，再继续 `V4 scheduler / freshness / alert production` 设计
+1. 补 `prompt-sessions` 的 API route 级回归
+2. 补 `Workspaces / Sessions / Prompt Agent` 的浏览器级 live-stack smoke
+3. 只在产品目标明确后，再继续 `V4 scheduler / freshness / alert production` 设计
 
 具体顺序建议：
 
-1. 补 `V3 Workspaces / Workbench / Sessions` 的更完整 HTTP / UI 集成回归
-2. 收口 `prompt-sessions` 在 V2/V3/V4 三条链路上的 provenance 展示契约
+1. 新增 `betterprompt/backend/tests/test_prompt_sessions_api.py`
+   - 优先覆盖 `GET /prompt-sessions`
+   - 再覆盖 `GET /prompt-sessions/{id}`
+   - 至少锁住 `preset_run / workspace_run / agent_run`
+   - 至少锁住 `run_preset_name / workflow_recipe_name / workflow_recipe_version_number / agent_monitor_id / trigger_kind`
+2. 补 `Workspaces -> report/version -> Sessions` 与 `Sessions agent_run -> Workbench` 的 live-stack smoke
+   - 优先复用当前 `verify_v3_stack.py / verify_v4_backend_contracts.py`
+   - 不要先开新产品面
 3. 保持 `V4 scheduler / monitor runtime`、`watchlist UI`、`alert feed` 继续冻结，直到目标重新确认
 
 ### Second Priority
 
-等 V2 backend 可用后，再做：
+如果第一优先级收口了，再做：
 
-1. 补后端 / 前端集成测试
-2. 收口 prompt-sessions provenance 展示契约
-3. 再开始 V3 schema foundation
+1. 整理 worktree，识别可提交改动与生成物
+2. 收口 `datetime.utcnow()` deprecation warning
+3. 再考虑是否补更多 route-level tests
 
 ### Third Priority
 
-只有在 V2 真正可用后，再进入：
+只有在产品目标重新确认后，再进入：
 
-- V3 schema foundation
-- V3 backend behavior
+- V4 scheduler / freshness production
+- watchlist UI
+- alert feed
 
 ### Explicitly Do Not Start Yet
 
@@ -589,16 +614,41 @@ PYTHONPATH=/Users/smy/project/better-prompt/betterprompt/backend \
 betterprompt/backend/.venv/bin/python scripts/smoke_v2_preset_workflows.py
 ```
 
+### Current Green Verification Set
+
+```bash
+cd betterprompt/backend
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -p 'test_*.py'
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m compileall app tests
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /Users/smy/project/better-prompt/scripts/verify_v2_stack.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /Users/smy/project/better-prompt/scripts/verify_v3_stack.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /Users/smy/project/better-prompt/scripts/verify_v4_backend_contracts.py
+
+cd /Users/smy/project/better-prompt/betterprompt/frontend
+npm test
+./node_modules/.bin/tsc -p tsconfig.json --pretty false
+./node_modules/.bin/vite build --outDir /tmp/betterprompt-frontend-smoke
+```
+
 ## Handoff Checklist For Another Model
 
 如果你是下一位继续开发的模型，开始前请先确认：
 
 - [ ] 先读完本文件和对应 phase 的三份主文档
 - [ ] 先看 `git status --short`，不要误回滚已有改动
-- [ ] 先确认当前目标属于 `V2 / V3 / V4` 哪一层
+- [ ] 先确认当前目标属于“集成回归收口”，不是新功能扩张
 - [ ] 先做最小正确实现，不要提前跨层
+- [ ] 先优先考虑 `prompt-sessions` API route tests，而不是继续扩产品面
+- [ ] 如需复跑环境，优先跑上面的 `Current Green Verification Set`
 - [ ] 做完代码后至少跑一次 `compileall`
 - [ ] 只要动了 migration，就跑一次临时库升级验证
+
+建议新会话接手时直接从这里开始：
+
+1. 新建 `betterprompt/backend/tests/test_prompt_sessions_api.py`
+2. 用最小 HTTP/ASGI 测法覆盖 `list/detail` 三条 provenance 主链路
+3. 跑 backend unittest + `verify_v2/v3/v4`
+4. 如果还有余力，再做浏览器级 smoke，而不是继续开 V4 scheduler
 
 ## Final Reminder
 
