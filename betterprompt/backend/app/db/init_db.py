@@ -9,7 +9,8 @@ from sqlalchemy import inspect, text
 
 from app.core.config import get_settings
 from app.db.base import Base
-from app.db.session import engine
+from app.db.seed_default_prompt_library import seed_default_prompt_library
+from app.db.session import AsyncSessionLocal, engine
 from app.models import AgentAlert
 from app.models import AgentMonitor
 from app.models import AgentRun
@@ -118,3 +119,6 @@ async def init_db() -> None:
             'Run `betterprompt/backend/.venv/bin/alembic -c betterprompt/backend/alembic.ini upgrade head` '
             'or start the app with `./scripts/betterprompt-dev.sh start`.'
         )
+
+    async with AsyncSessionLocal() as session:
+        await seed_default_prompt_library(session)

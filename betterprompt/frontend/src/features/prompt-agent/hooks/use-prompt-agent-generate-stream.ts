@@ -35,6 +35,7 @@ interface UseStreamGenerateReturn {
     session_id?: string;
     domain_workspace_id?: string;
     subject_id?: string;
+    source_asset_version_id?: string;
     context_pack_version_ids?: string[];
     evaluation_profile_version_id?: string | null;
     workflow_recipe_version_id?: string | null;

@@ -188,9 +188,11 @@ Core endpoints:
 
 - Backend unit tests: `cd betterprompt/backend && PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -p 'test_*.py'`
 - Backend syntax smoke: `cd betterprompt/backend && PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m compileall app tests`
+- Unified acceptance smoke: `betterprompt/backend/.venv/bin/python scripts/verify_acceptance_stack.py`
 - Full-stack V2 smoke: `betterprompt/backend/.venv/bin/python scripts/verify_v2_stack.py`
 - Full-stack V3 smoke: `betterprompt/backend/.venv/bin/python scripts/verify_v3_stack.py`
 - V4 backend contracts smoke: `betterprompt/backend/.venv/bin/python scripts/verify_v4_backend_contracts.py`
+- Browser live-stack smoke: `betterprompt/backend/.venv/bin/python scripts/verify_browser_live_stack.py`
 - Frontend unit tests: `cd betterprompt/frontend && npm test`
 - Frontend typecheck: `cd betterprompt/frontend && ./node_modules/.bin/tsc -p tsconfig.json --pretty false`
 - Frontend build smoke: `cd betterprompt/frontend && ./node_modules/.bin/vite build --outDir /tmp/betterprompt-frontend-smoke`

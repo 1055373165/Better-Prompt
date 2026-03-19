@@ -430,22 +430,60 @@ V4  Freshness-Aware Agents
 
 当前真正进入开发阶段的点是：
 
-- `V3 / V4` 更完整的前后端集成 / 回归测试与可复跑验收收口
+- `V3 / V4` 集成回归收口后的可提交整理
 
 当前还没有完成的部分：
 
-- `prompt-sessions` 还缺一层真正的 API route 级回归
-- `Workspaces / Sessions / Prompt Agent` 还缺浏览器级 live-stack smoke 自动化
+- 如需提交，需要先区分这轮真实源码改动与并行产品改动
 
 最近一轮已经收口并验证过的点：
 
 - `prompt-sessions` service 层现在已有独立跨链路回归
   - `manual_workbench / workspace_run / agent_run`
   - `preset / recipe / workspace / agent` provenance summary、detail、filters
+- `prompt-sessions` API route 级回归已补齐
+  - 已新增 [test_prompt_sessions_api.py](/Users/smy/go/just-for-test-only-once/Better-Prompt/betterprompt/backend/tests/test_prompt_sessions_api.py)
+  - 已覆盖 `GET /prompt-sessions` 与 `GET /prompt-sessions/{id}`
+  - 已锁住 `preset_run / workspace_run / agent_run`
+  - 已锁住 `run_preset_name / workflow_recipe_name / workflow_recipe_version_number / agent_monitor_id / trigger_kind`
 - `verify_v2_stack.py / verify_v3_stack.py / verify_v4_backend_contracts.py` 都已在本地真实跑通
 - `verify_v2_stack.py` 已修复健康栈误连旧 backend 的问题
 - `verify_v3_stack.py` 已升级为验证 `workspace debug -> sourced report version -> prompt-sessions`
 - `verify_v4_backend_contracts.py` 已升级为验证 `agent_run` 的 `preset / recipe / trigger` provenance
+- 浏览器级 live-stack smoke 已补齐并跑通
+  - 已新增 [verify_browser_live_stack.py](/Users/smy/go/just-for-test-only-once/Better-Prompt/scripts/verify_browser_live_stack.py)
+  - 复用了 `verify_v3_stack.py / verify_v4_backend_contracts.py` 的真实造数链路
+  - 已确认 `Workspaces -> report/version -> Sessions`
+  - 已确认 `Sessions agent_run -> Prompt Agent/Workbench`
+  - 已改为通过 Edge/Chrome DevTools Protocol 读取 hydrate 后真实页面状态
+- frontend dev startup 已与 `vitest/config` 解耦
+  - 已更新 [vite.config.ts](/Users/smy/go/just-for-test-only-once/Better-Prompt/betterprompt/frontend/vite.config.ts)
+  - 本地 `./dev up` 不再因为缺少 `vitest` 包而阻塞前端启动
+- frontend 依赖已补齐并完成本机验证
+  - 已执行 `npm install`
+  - 已通过 `npm test`
+  - 已通过 `npm run build`
+  - 当前环境 Node 版本为 `v23.11.0`，安装阶段会出现 engine warning，但未阻塞测试与构建
+- frontend test 的 Vite deprecation warning 已收口
+  - 已把 [package.json](/Users/smy/go/just-for-test-only-once/Better-Prompt/betterprompt/frontend/package.json) 中的 `vitest` 从 `4.x` 对齐回 `3.2.4`
+  - 已更新 [package-lock.json](/Users/smy/go/just-for-test-only-once/Better-Prompt/betterprompt/frontend/package-lock.json)
+  - `npm ls` 现已对齐为 `vitest@3.2.4 -> vite@5.4.21`
+  - `npm test` 已不再出现 `vite:react-babel / oxc` deprecation warning
+- frontend build 的 Node experimental warning 已收口
+  - 已把 [tailwind.config.ts](/Users/smy/go/just-for-test-only-once/Better-Prompt/betterprompt/frontend/tailwind.config.ts) 改为 [tailwind.config.js](/Users/smy/go/just-for-test-only-once/Better-Prompt/betterprompt/frontend/tailwind.config.js)
+  - `NODE_OPTIONS='--trace-warnings' npm run build` 已不再出现 `Type Stripping` experimental warning
+- 统一验收入口已补齐
+  - 已新增 [verify_acceptance_stack.py](/Users/smy/go/just-for-test-only-once/Better-Prompt/scripts/verify_acceptance_stack.py)
+  - 已复用 `verify_v2_stack.py / verify_browser_live_stack.py`
+  - 会顺序覆盖 `V2 HTTP -> V3 HTTP + browser -> V4 HTTP + browser`
+  - 已本地真实跑通 `betterprompt/backend/.venv/bin/python scripts/verify_acceptance_stack.py`
+- `datetime.utcnow()` warning 已收口
+  - 已更新 [run_preset_launch_service.py](/Users/smy/go/just-for-test-only-once/Better-Prompt/betterprompt/backend/app/services/run_preset_launch_service.py)
+  - 已统一改为本地 `_utcnow()` helper，和现有 runtime service 写法一致
+  - 已用 `-W error::DeprecationWarning` 跑过 `tests.test_v2_workflow_assets`
+- worktree 运行时生成物已清理
+  - `.run/logs/backend.log / frontend.log` 与 `betterprompt.db` 已恢复
+  - 当前只剩源码、测试脚本与文档改动
 
 ## Next Actions
 
@@ -453,29 +491,27 @@ V4  Freshness-Aware Agents
 
 下一位模型接手时，最应该继续的是：
 
-1. 补 `prompt-sessions` 的 API route 级回归
-2. 补 `Workspaces / Sessions / Prompt Agent` 的浏览器级 live-stack smoke
+1. 如需提交，先只保留这轮源码改动，避免和并行 Prompt Library / product 改动混在一起
+2. 视情况补一轮最终绿灯复跑
 3. 只在产品目标明确后，再继续 `V4 scheduler / freshness / alert production` 设计
 
 具体顺序建议：
 
-1. 新增 `betterprompt/backend/tests/test_prompt_sessions_api.py`
-   - 优先覆盖 `GET /prompt-sessions`
-   - 再覆盖 `GET /prompt-sessions/{id}`
-   - 至少锁住 `preset_run / workspace_run / agent_run`
-   - 至少锁住 `run_preset_name / workflow_recipe_name / workflow_recipe_version_number / agent_monitor_id / trigger_kind`
-2. 补 `Workspaces -> report/version -> Sessions` 与 `Sessions agent_run -> Workbench` 的 live-stack smoke
-   - 优先复用当前 `verify_v3_stack.py / verify_v4_backend_contracts.py`
-   - 不要先开新产品面
+1. 先整理 worktree
+   - 这轮新增/修改主要集中在 `verify_acceptance_stack.py / verify_browser_live_stack.py / test_prompt_sessions_api.py / run_preset_launch_service.py / vite.config.ts / package.json / package-lock.json / tailwind.config.js`
+   - 当前还有并行 Prompt Library / backend product 面改动，不要误混
+2. 再决定是否补最终绿灯复跑
+   - `npm test / npm run build / verify_acceptance_stack.py` 已经通过
+   - 如果环境里又复用了旧 stack，优先 `./dev restart` 后再验
 3. 保持 `V4 scheduler / monitor runtime`、`watchlist UI`、`alert feed` 继续冻结，直到目标重新确认
 
 ### Second Priority
 
 如果第一优先级收口了，再做：
 
-1. 整理 worktree，识别可提交改动与生成物
-2. 收口 `datetime.utcnow()` deprecation warning
-3. 再考虑是否补更多 route-level tests
+1. 再考虑是否补更多 route-level tests
+2. 评估是否需要把 browser smoke 细分成 `v3` / `v4` 独立入口
+3. 视情况给 acceptance 脚本补“强制 fresh stack”选项
 
 ### Third Priority
 
@@ -503,7 +539,7 @@ V4  Freshness-Aware Agents
 
 ### Phase A: Stabilize Current Foundation
 
-- [ ] 整理当前 worktree，确认哪些改动需要提交
+- [x] 整理当前 worktree，确认哪些改动需要提交
 - [ ] 为 V2 schema foundation 增加最小单元测试或迁移测试
 - [x] 更新 README roadmap，让它和当前真实路线一致
 
@@ -620,11 +656,13 @@ betterprompt/backend/.venv/bin/python scripts/smoke_v2_preset_workflows.py
 cd betterprompt/backend
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -p 'test_*.py'
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m compileall app tests
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /Users/smy/project/better-prompt/scripts/verify_v2_stack.py
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /Users/smy/project/better-prompt/scripts/verify_v3_stack.py
-PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /Users/smy/project/better-prompt/scripts/verify_v4_backend_contracts.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /Users/smy/go/just-for-test-only-once/Better-Prompt/scripts/verify_acceptance_stack.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /Users/smy/go/just-for-test-only-once/Better-Prompt/scripts/verify_v2_stack.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /Users/smy/go/just-for-test-only-once/Better-Prompt/scripts/verify_v3_stack.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /Users/smy/go/just-for-test-only-once/Better-Prompt/scripts/verify_v4_backend_contracts.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python /Users/smy/go/just-for-test-only-once/Better-Prompt/scripts/verify_browser_live_stack.py
 
-cd /Users/smy/project/better-prompt/betterprompt/frontend
+cd /Users/smy/go/just-for-test-only-once/Better-Prompt/betterprompt/frontend
 npm test
 ./node_modules/.bin/tsc -p tsconfig.json --pretty false
 ./node_modules/.bin/vite build --outDir /tmp/betterprompt-frontend-smoke
@@ -638,17 +676,17 @@ npm test
 - [ ] 先看 `git status --short`，不要误回滚已有改动
 - [ ] 先确认当前目标属于“集成回归收口”，不是新功能扩张
 - [ ] 先做最小正确实现，不要提前跨层
-- [ ] 先优先考虑 `prompt-sessions` API route tests，而不是继续扩产品面
+- [ ] 先优先考虑最终绿灯验证与 warning 定位，而不是继续扩产品面
 - [ ] 如需复跑环境，优先跑上面的 `Current Green Verification Set`
 - [ ] 做完代码后至少跑一次 `compileall`
 - [ ] 只要动了 migration，就跑一次临时库升级验证
 
 建议新会话接手时直接从这里开始：
 
-1. 新建 `betterprompt/backend/tests/test_prompt_sessions_api.py`
-2. 用最小 HTTP/ASGI 测法覆盖 `list/detail` 三条 provenance 主链路
-3. 跑 backend unittest + `verify_v2/v3/v4`
-4. 如果还有余力，再做浏览器级 smoke，而不是继续开 V4 scheduler
+1. 先看新增的 `verify_acceptance_stack.py / test_prompt_sessions_api.py / verify_browser_live_stack.py / vite.config.ts / run_preset_launch_service.py`
+2. 如果继续收口，就先判断 `vite / node` warning 是否值得修
+3. 如需最终复跑，优先用 `verify_acceptance_stack.py`
+4. 如果还有余力，再看 warning，而不是继续开 V4 scheduler
 
 ## Final Reminder
 

@@ -3,6 +3,53 @@ export type PromptAgentResponseMode = PromptAgentMode | 'continue';
 export type PromptArtifactType = 'system_prompt' | 'task_prompt' | 'analysis_workflow' | 'conversation_prompt';
 export type GenerateOutputPreference = 'balanced' | 'depth' | 'execution' | 'natural';
 export type EvaluateTargetType = 'prompt' | 'output';
+export type GenerateStrategy = 'optimize' | 'research';
+
+export interface PromptCategoryTreeItem {
+  id: string;
+  name: string;
+  path: string;
+  depth: number;
+  sort_order: number;
+  children: PromptCategoryTreeItem[];
+}
+
+export interface PromptAssetVersionSummary {
+  id: string;
+  version_number: number;
+  change_summary: string | null;
+  created_at: string;
+}
+
+export interface PromptAssetVersionDetail extends PromptAssetVersionSummary {
+  content: string;
+  source_iteration_id: string | null;
+  source_asset_version_id: string | null;
+}
+
+export interface PromptAssetSummary {
+  id: string;
+  category_id: string | null;
+  name: string;
+  description: string | null;
+  is_favorite: boolean;
+  tags: string[];
+  current_version: PromptAssetVersionSummary | null;
+  updated_at: string;
+}
+
+export interface PromptAssetDetail {
+  id: string;
+  category_id: string | null;
+  name: string;
+  description: string | null;
+  is_favorite: boolean;
+  tags: string[];
+  current_version: PromptAssetVersionDetail | null;
+  updated_at: string;
+  created_at: string;
+  archived_at: string | null;
+}
 
 export interface GenerateDraft {
   userInput: string;

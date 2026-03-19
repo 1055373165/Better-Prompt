@@ -33,6 +33,12 @@ class PromptAssetVersionSummary(BaseModel):
     created_at: datetime
 
 
+class PromptAssetVersionDetail(PromptAssetVersionSummary):
+    content: str
+    source_iteration_id: str | None = None
+    source_asset_version_id: str | None = None
+
+
 class PromptAssetSummary(BaseModel):
     id: str
     category_id: str | None = None
@@ -44,7 +50,15 @@ class PromptAssetSummary(BaseModel):
     updated_at: datetime
 
 
-class PromptAssetDetail(PromptAssetSummary):
+class PromptAssetDetail(BaseModel):
+    id: str
+    category_id: str | None = None
+    name: str
+    description: str | None = None
+    is_favorite: bool
+    tags: list[str] = Field(default_factory=list)
+    current_version: PromptAssetVersionDetail | None = None
+    updated_at: datetime
     created_at: datetime
     archived_at: datetime | None = None
 

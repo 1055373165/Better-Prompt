@@ -1,9 +1,15 @@
-import { loadEnv } from 'vite';
-import { defineConfig } from 'vitest/config';
+import { defineConfig, loadEnv, type UserConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 
-export default defineConfig(({ mode }) => {
+type BetterPromptViteConfig = UserConfig & {
+  test?: {
+    environment: string;
+    setupFiles: string;
+  };
+};
+
+export default defineConfig(({ mode }): BetterPromptViteConfig => {
   const env = loadEnv(mode, process.cwd(), '');
   const frontendPort = Number(env.BETTERPROMPT_FRONTEND_PORT || 5173);
   const backendPort = Number(env.BETTERPROMPT_BACKEND_PORT || 8000);

@@ -1,983 +1,1609 @@
-import { useEffect, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useDeferredValue, useEffect, useState } from 'react';
 import {
-  ArrowUpRight,
-  Brain,
-  ChartBar,
-  Code2,
-  GraduationCap,
-  Languages,
-  Layers3,
-  Lightbulb,
-  Megaphone,
-  PenLine,
+  BarChart3,
+  Bookmark,
+  BookmarkCheck,
+  ChevronDown,
+  ChevronRight,
+  Clipboard,
+  FolderPlus,
+  FolderTree,
+  LoaderCircle,
+  PencilLine,
+  Plus,
   Search,
-  Target,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Trash2,
   Wand2,
+  X,
 } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { api } from '@/lib/api/client';
-import { ContinueActions } from './components/continue-actions';
-import { DebugPanel } from './components/debug-panel';
-import { EvaluatePanel } from './components/evaluate-panel';
-import { GeneratePanel } from './components/generate-panel';
-import { ModeSelector } from './components/mode-selector';
-import { ResultPanel } from './components/result-panel';
-import { WorkflowAssetsPanel } from './components/workflow-assets-panel';
-import { usePromptAgentContinue } from './hooks/use-prompt-agent-continue';
+import { Button } from '@/components/ui/button';
+import {
+  useCreatePromptAsset,
+  useCreatePromptAssetVersion,
+  useCreatePromptCategory,
+  useDeletePromptAsset,
+  useDeletePromptCategory,
+  usePromptAssetDetail,
+  usePromptLibrary,
+  useUpdatePromptAsset,
+} from './hooks/use-prompt-library';
 import { usePromptAgentDebug } from './hooks/use-prompt-agent-debug';
 import { usePromptAgentEvaluate } from './hooks/use-prompt-agent-evaluate';
 import { usePromptAgentGenerateStream } from './hooks/use-prompt-agent-generate-stream';
-import { useRunPresetDetail } from './hooks/use-run-preset-detail';
-import { useRunPresetLaunch } from './hooks/use-run-preset-launch';
-import { useWorkflowAssetCatalog } from './hooks/use-workflow-asset-catalog';
 import type {
-  ContinuePromptResponse,
-  ContextPackSummary,
   DebugDraft,
-  DebugPromptResponse,
   EvaluateDraft,
-  EvaluatePromptResponse,
-  EvaluationProfileSummary,
-  GenerateDraft,
-  GeneratePromptResponse,
+  GenerateStrategy,
   PromptAgentMode,
-  RunContextSnapshot,
-  RunPresetDetail,
-  RunPresetLaunchResponse,
-  WorkspaceScopeSelection,
-  WorkflowRecipeSummary,
-  WorkflowRefSelection,
+  PromptAssetDetail,
+  PromptAssetSummary,
+  PromptCategoryTreeItem,
 } from './types';
 
-const DEFAULT_CONTINUE_ACTIONS: Record<PromptAgentMode, string[]> = {
-  generate: ['再增强深度', '再提高可执行性', '改成更自然的表达风格'],
-  debug: ['继续修复结构缺口', '补强边界与约束', '保留原意但增强判断力'],
-  evaluate: ['自动修复最低分项', '补强整体稳定性', '基于评估重生成一版'],
+const MODE_COPY: Record<
+  PromptAgentMode,
+  {
+    label: string;
+    title: string;
+    description: string;
+    icon: typeof Wand2;
+    cta: string;
+  }
+> = {
+  generate: {
+    label: 'Prompt Generate',
+    title: '把需求压缩成专业、完整、可直接发送的 Prompt',
+    description: '输入你的原始诉求，系统会结合已选提示词，把它整理成更稳、更清晰的成品。',
+    icon: Wand2,
+    cta: '开始生成',
+  },
+  debug: {
+    label: 'Debug',
+    title: '拆开失败现场，给出一版更可靠的修复 Prompt',
+    description: '贴入任务、当前 Prompt 与输出，让系统判断最可能的结构问题。',
+    icon: ShieldCheck,
+    cta: '开始调试',
+  },
+  evaluate: {
+    label: 'Evaluate',
+    title: '先判断质量，再决定下一轮该怎么改',
+    description: '对 Prompt 或输出做结构化评估，直接看到最该优先修的地方。',
+    icon: BarChart3,
+    cta: '开始评估',
+  },
 };
 
-const INITIAL_GENERATE_DRAFT: GenerateDraft = {
-  userInput: '',
-  showDiagnosis: true,
-  promptOnly: false,
-  artifactType: 'task_prompt',
-  outputPreference: 'balanced',
+const GENERATE_STRATEGY_COPY: Record<
+  GenerateStrategy,
+  {
+    title: string;
+    description: string;
+    badge: string;
+  }
+> = {
+  optimize: {
+    title: '提示词优化模式',
+    description: '用户已经描述了大意，但还不够完整专业。系统会保留原意，并主动补齐约束、上下文和执行标准。',
+    badge: 'Refine',
+  },
+  research: {
+    title: '研究模式',
+    description: '用户需求仍然模糊。系统会先识别研究领域，再以内化的专家视角产出一份可工作的研究型 Prompt。',
+    badge: 'Research',
+  },
 };
 
-const INITIAL_DEBUG_DRAFT: DebugDraft = {
+const FIX_LAYER_LABELS: Record<string, string> = {
+  problem_redefinition: '问题定义',
+  cognitive_drill_down: '认知下钻',
+  key_point_priority: '关键点优先级',
+  criticality: '批判性分析',
+  information_density: '信息密度',
+  boundary_validation: '边界验证',
+  executability: '可执行性',
+  style_control: '表达风格',
+};
+
+const EMPTY_DEBUG_DRAFT: DebugDraft = {
   originalTask: '',
   currentPrompt: '',
   currentOutput: '',
 };
 
-const INITIAL_EVALUATE_DRAFT: EvaluateDraft = {
+const EMPTY_EVALUATE_DRAFT: EvaluateDraft = {
   targetText: '',
   targetType: 'prompt',
 };
 
-const INITIAL_WORKFLOW_REFS: WorkflowRefSelection = {
-  context_pack_version_ids: [],
-  evaluation_profile_version_id: null,
-  workflow_recipe_version_id: null,
-  run_preset_id: null,
+type PromptEditorState = {
+  name: string;
+  description: string;
+  content: string;
+  tags: string;
+  categoryId: string | null;
 };
 
-const INITIAL_WORKSPACE_SCOPE: WorkspaceScopeSelection = {
-  domain_workspace_id: null,
-  subject_id: null,
-  domain_workspace_label: null,
-  subject_label: null,
-};
+type PromptPanelMode = 'hidden' | 'view' | 'create' | 'edit';
 
-const FIX_LAYER_LABELS: Record<string, string> = {
-  problem_redefinition: '问题重定义层',
-  cognitive_drill_down: '认知下钻层',
-  key_point_priority: '关键点优先层',
-  criticality: '批判性分析层',
-  information_density: '信息密度层',
-  boundary_validation: '边界验证层',
-  executability: '可执行性层',
-  style_control: '风格控制层',
-};
+const SELECTED_PROMPT_STORAGE_KEY = 'betterprompt:selected-prompt-id';
 
-const DOMAIN_CHIPS = [
-  { icon: Code2, label: '代码分析' },
-  { icon: Target, label: '架构设计' },
-  { icon: ChartBar, label: '数据分析' },
-  { icon: Search, label: '商业洞察' },
-  { icon: Lightbulb, label: '产品设计' },
-  { icon: GraduationCap, label: '教学' },
-  { icon: Megaphone, label: '创意营销' },
-  { icon: Languages, label: '文档翻译' },
-  { icon: PenLine, label: '写作' },
-  { icon: Brain, label: '算法' },
-];
-
-const WORKBENCH_PRINCIPLES = [
-  {
-    icon: Layers3,
-    title: '单一工作台',
-    description: '输入、判断、结果和继续优化都在同一张桌面上完成，不需要在聊天流里捞信息。',
-  },
-  {
-    icon: Wand2,
-    title: '模式由你决定',
-    description: 'Generate、Debug、Evaluate 明确分流，系统不再替你擅自切模式。',
-  },
-  {
-    icon: ArrowUpRight,
-    title: '结果永远是主角',
-    description: '右侧结果桌面固定承接成品、评分和继续优化，让下一步动作始终可见。',
-  },
-];
-
-const MODE_CANVAS_COPY: Record<
-  PromptAgentMode,
-  {
-    badge: string;
-    title: string;
-    description: string;
-    resultEyebrow: string;
-    resultDescription: string;
-    firstStep: string;
-    secondStep: string;
-  }
-> = {
-  generate: {
-    badge: 'Rewrite Flow',
-    title: '从模糊需求到可直接发送的 Prompt',
-    description: '先写清你真正要解决的业务意图，再让系统把它编译成更清晰、更有判断力的成品 Prompt。',
-    resultEyebrow: 'Result Desk',
-    resultDescription: '生成中的文本会实时落在这里；完成后可以直接复制，或者继续在当前版本上打磨。',
-    firstStep: '写下真实目标',
-    secondStep: '查看并继续优化成品 Prompt',
-  },
-  debug: {
-    badge: 'Repair Flow',
-    title: '定位 Prompt 失效点，再给出修复版',
-    description: '把任务、当前 Prompt 和输出一并摊开，系统会判断最可能的失败模式，并给你一版更稳定的修复结果。',
-    resultEyebrow: 'Repair Desk',
-    resultDescription: '这里集中展示问题诊断、修复后 Prompt 和继续优化生成结果，方便一眼比对前后差异。',
-    firstStep: '交代任务与失败现象',
-    secondStep: '查看诊断并拿走修复版',
-  },
-  evaluate: {
-    badge: 'Score Flow',
-    title: '先判断质量，再决定下一轮该怎么改',
-    description: '把 Prompt 或输出贴进来，系统会给出评分、主要缺陷和优先修复层，帮你停止凭感觉迭代。',
-    resultEyebrow: 'Review Desk',
-    resultDescription: '分数、解释、重点缺陷和优化结果都会集中放在结果桌面，下一步该修什么会更清楚。',
-    firstStep: '贴入待评估内容',
-    secondStep: '根据分数继续重写',
-  },
-};
-
-type WorkflowCatalogData = {
-  contextPacks: ContextPackSummary[];
-  evaluationProfiles: EvaluationProfileSummary[];
-  workflowRecipes: WorkflowRecipeSummary[];
-};
-
-function hasWorkflowBindings(refs: WorkflowRefSelection): boolean {
-  return Boolean(
-    refs.workflow_recipe_version_id
-      || refs.evaluation_profile_version_id
-      || refs.context_pack_version_ids.length
-      || refs.run_preset_id,
-  );
-}
-
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value : null;
-}
-
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
-}
-
-function findWorkflowRecipeLabel(catalog: WorkflowCatalogData | undefined, versionId: string | null): string | null {
-  if (!catalog || !versionId) {
-    return null;
-  }
-  for (const item of catalog.workflowRecipes) {
-    if (item.current_version?.id === versionId) {
-      return `${item.name} · v${item.current_version.version_number}`;
-    }
-  }
-  return null;
-}
-
-function findEvaluationProfileLabel(catalog: WorkflowCatalogData | undefined, versionId: string | null): string | null {
-  if (!catalog || !versionId) {
-    return null;
-  }
-  for (const item of catalog.evaluationProfiles) {
-    if (item.current_version?.id === versionId) {
-      return `${item.name} · v${item.current_version.version_number}`;
-    }
-  }
-  return null;
-}
-
-function findContextPackLabels(catalog: WorkflowCatalogData | undefined, versionIds: string[]): string[] {
-  if (!catalog || versionIds.length === 0) {
-    return [];
-  }
-  const labels: string[] = [];
-  for (const versionId of versionIds) {
-    const matched = catalog.contextPacks.find((item) => item.current_version?.id === versionId);
-    if (matched?.current_version) {
-      labels.push(`${matched.name} · v${matched.current_version.version_number}`);
-    }
-  }
-  return labels;
-}
-
-function buildRunContextSnapshot(
-  refs: WorkflowRefSelection,
-  workspaceScope: WorkspaceScopeSelection,
-  catalog: WorkflowCatalogData | undefined,
-  launchLabel: string,
-  runPreset: RunPresetDetail | null = null,
-): RunContextSnapshot {
+function createEmptyEditor(categoryId: string | null = null): PromptEditorState {
   return {
-    launch_label: launchLabel,
-    refs,
-    workspace_scope: workspaceScope.domain_workspace_id || workspaceScope.subject_id
-      ? workspaceScope
-      : null,
-    workflow_recipe_label: findWorkflowRecipeLabel(catalog, refs.workflow_recipe_version_id),
-    evaluation_profile_label: findEvaluationProfileLabel(catalog, refs.evaluation_profile_version_id),
-    context_pack_labels: findContextPackLabels(catalog, refs.context_pack_version_ids),
-    run_preset_label: runPreset ? `Preset · ${runPreset.name}` : null,
+    name: '',
+    description: '',
+    content: '',
+    tags: '',
+    categoryId,
   };
 }
 
-function buildDirectRunContext(
-  refs: WorkflowRefSelection,
-  workspaceScope: WorkspaceScopeSelection,
-  catalog: WorkflowCatalogData | undefined,
-): RunContextSnapshot {
-  return buildRunContextSnapshot(
-    refs,
-    workspaceScope,
-    catalog,
-    hasWorkflowBindings(refs) ? 'Workbench Direct Run · Workflow Assets' : 'Workbench Direct Run',
-  );
+function toEditorState(detail: PromptAssetDetail): PromptEditorState {
+  return {
+    name: detail.name,
+    description: detail.description ?? '',
+    content: detail.current_version?.content ?? '',
+    tags: detail.tags.join(', '),
+    categoryId: detail.category_id,
+  };
 }
 
-function buildPresetRunContext(
-  runPreset: RunPresetDetail,
-  workspaceScope: WorkspaceScopeSelection,
-  catalog: WorkflowCatalogData | undefined,
-  launchLabel: string,
-): RunContextSnapshot {
-  return buildRunContextSnapshot(
-    {
-      context_pack_version_ids: asStringArray(runPreset.definition.context_pack_version_ids),
-      evaluation_profile_version_id: asString(runPreset.definition.evaluation_profile_version_id),
-      workflow_recipe_version_id: asString(runPreset.definition.workflow_recipe_version_id),
-      run_preset_id: runPreset.id,
-    },
-    workspaceScope,
-    catalog,
-    launchLabel,
-    runPreset,
-  );
+function splitTags(value: string): string[] {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
-function buildContinueRunContext(runContext: RunContextSnapshot | null): RunContextSnapshot | null {
-  if (!runContext) {
+function matchesSearchText(value: string | null | undefined, searchText: string): boolean {
+  if (!searchText.trim()) {
+    return true;
+  }
+  return (value ?? '').toLowerCase().includes(searchText.trim().toLowerCase());
+}
+
+function flattenCategoryOptions(
+  items: PromptCategoryTreeItem[],
+  options: Array<{ id: string; label: string }> = [],
+) {
+  for (const item of items) {
+    options.push({
+      id: item.id,
+      label: item.path,
+    });
+    flattenCategoryOptions(item.children, options);
+  }
+  return options;
+}
+
+function formatTime(value: string | null | undefined): string {
+  if (!value) {
+    return '刚刚';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '刚刚';
+  }
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function getErrorMessage(error: unknown): string | null {
+  if (!error) {
     return null;
   }
-  return {
-    ...runContext,
-    launch_label: `Continue Optimization · ${runContext.launch_label}`,
-  };
-}
-
-function getLaunchOverridePreview(
-  mode: PromptAgentMode,
-  generateDraft: GenerateDraft,
-  debugDraft: DebugDraft,
-  evaluateDraft: EvaluateDraft,
-): string | null {
-  if (mode === 'generate') {
-    return generateDraft.userInput.trim() || null;
-  }
-  if (mode === 'debug') {
-    return debugDraft.originalTask.trim() || null;
-  }
-  return evaluateDraft.targetText.trim() || null;
-}
-
-function getLaunchResponseMode(response: RunPresetLaunchResponse): PromptAgentMode {
-  return response.mode === 'continue' ? response.source_mode : response.mode;
-}
-
-function buildRunPresetDefinition(
-  mode: PromptAgentMode,
-  workflowRefs: WorkflowRefSelection,
-  generateDraft: GenerateDraft,
-  debugDraft: DebugDraft,
-  evaluateDraft: EvaluateDraft,
-): Record<string, unknown> {
-  const definition: Record<string, unknown> = {
-    mode,
-    context_pack_version_ids: workflowRefs.context_pack_version_ids,
-    run_settings: {},
-  };
-  if (workflowRefs.evaluation_profile_version_id) {
-    definition.evaluation_profile_version_id = workflowRefs.evaluation_profile_version_id;
-  }
-  if (workflowRefs.workflow_recipe_version_id) {
-    definition.workflow_recipe_version_id = workflowRefs.workflow_recipe_version_id;
-  }
-
-  const runSettings = definition.run_settings as Record<string, unknown>;
-
-  if (mode === 'generate') {
-    const userInput = generateDraft.userInput.trim();
-    if (!userInput) {
-      throw new Error('保存 Generate preset 前，先填写当前要生成的用户输入。');
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const maybeResponse = error as {
+      response?: {
+        data?: {
+          detail?: string | { message?: string };
+        };
+      };
+    };
+    const detail = maybeResponse.response?.data?.detail;
+    if (typeof detail === 'string') {
+      return detail;
     }
-    runSettings.user_input = userInput;
-    runSettings.show_diagnosis = generateDraft.showDiagnosis;
-    runSettings.output_preference = generateDraft.outputPreference;
-    runSettings.artifact_type = generateDraft.artifactType;
-    runSettings.prompt_only = generateDraft.promptOnly;
-    return definition;
-  }
-
-  if (mode === 'debug') {
-    const originalTask = debugDraft.originalTask.trim();
-    const currentPrompt = debugDraft.currentPrompt.trim();
-    const currentOutput = debugDraft.currentOutput.trim();
-    if (!originalTask || !currentPrompt || !currentOutput) {
-      throw new Error('保存 Debug preset 前，需要先填完 original task、current prompt 和 current output。');
+    if (detail && typeof detail === 'object' && typeof detail.message === 'string') {
+      return detail.message;
     }
-    runSettings.original_task = originalTask;
-    runSettings.current_prompt = currentPrompt;
-    runSettings.current_output = currentOutput;
-    runSettings.output_preference = 'balanced';
-    return definition;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return '请求失败，请稍后再试。';
+}
+
+function buildGenerateContextNotes(strategy: GenerateStrategy, promptName: string | null): string {
+  const blocks = [
+    strategy === 'optimize'
+      ? [
+        '当前运行模式：提示词优化模式。',
+        '默认用户已经基本说明了需求，但表达仍然不够完整、专业或严格。',
+        '请保留用户原意，主动补足背景、约束、边界、执行步骤、输出格式与质量标准。',
+      ].join('\n')
+      : [
+        '当前运行模式：研究模式。',
+        '默认用户的描述仍然比较模糊。',
+        '请先判断最可能的研究领域、关键视角与专家方法论，再把这些认知内化成一份研究型 Prompt。',
+        '如果关键信息缺失，不要停在泛泛建议，要把应如何澄清、如何验证写进最终 Prompt。',
+      ].join('\n'),
+  ];
+
+  if (promptName) {
+    blocks.push(`当前已选中的参考提示词是「${promptName}」。请吸收它的结构与约束，但不要机械复刻。`);
   }
 
-  const targetText = evaluateDraft.targetText.trim();
-  if (!targetText) {
-    throw new Error('保存 Evaluate preset 前，先填写当前待评估内容。');
-  }
-  runSettings.target_text = targetText;
-  runSettings.target_type = evaluateDraft.targetType;
-  return definition;
+  return blocks.join('\n\n');
+}
+
+function FieldLabel({
+  title,
+  hint,
+}: {
+  title: string;
+  hint?: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="text-sm font-semibold text-[var(--bp-ink)]">{title}</div>
+      {hint ? <div className="text-xs leading-6 text-[var(--bp-ink-soft)]">{hint}</div> : null}
+    </div>
+  );
+}
+
+function ModeCard({
+  active,
+  icon: Icon,
+  label,
+  title,
+  description,
+  onClick,
+}: {
+  active: boolean;
+  icon: typeof Wand2;
+  label: string;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-[1.6rem] border px-4 py-4 text-left transition-all ${
+        active
+          ? 'border-[rgba(31,36,45,0.14)] bg-[linear-gradient(135deg,rgba(28,34,43,0.98),rgba(56,63,75,0.98))] text-[#f8f3eb] shadow-[0_20px_44px_-30px_rgba(25,27,31,0.46)]'
+          : 'border-[var(--bp-line)] bg-[rgba(255,255,255,0.76)] text-[var(--bp-ink)] hover:border-[var(--bp-line-strong)] hover:bg-[rgba(255,255,255,0.92)]'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className={`rounded-full p-2 ${active ? 'bg-[rgba(255,255,255,0.14)]' : 'bg-[rgba(162,74,53,0.1)] text-[var(--bp-clay)]'}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className={`text-[10px] font-semibold uppercase tracking-[0.22em] ${active ? 'text-[rgba(248,243,235,0.68)]' : 'text-[var(--bp-ink-soft)]'}`}>
+          {label}
+        </span>
+      </div>
+      <div className="mt-4 text-base font-semibold leading-6">{title}</div>
+      <div className={`mt-2 text-sm leading-7 ${active ? 'text-[rgba(248,243,235,0.78)]' : 'text-[var(--bp-ink-soft)]'}`}>
+        {description}
+      </div>
+    </button>
+  );
 }
 
 export default function PromptAgentPage() {
-  const [searchParams] = useSearchParams();
-  const [mode, setMode] = useState<PromptAgentMode>('generate');
-  const [copied, setCopied] = useState(false);
-  const [showWorkflowAssets, setShowWorkflowAssets] = useState(false);
-  const [generateDraft, setGenerateDraft] = useState<GenerateDraft>(INITIAL_GENERATE_DRAFT);
-  const [debugDraft, setDebugDraft] = useState<DebugDraft>(INITIAL_DEBUG_DRAFT);
-  const [evaluateDraft, setEvaluateDraft] = useState<EvaluateDraft>(INITIAL_EVALUATE_DRAFT);
-  const [workflowRefs, setWorkflowRefs] = useState<WorkflowRefSelection>(INITIAL_WORKFLOW_REFS);
-  const [workspaceScope, setWorkspaceScope] = useState<WorkspaceScopeSelection>(INITIAL_WORKSPACE_SCOPE);
-  const [selectedRunPresetId, setSelectedRunPresetId] = useState<string | null>(null);
-  const [savePresetDraft, setSavePresetDraft] = useState({ name: '', description: '' });
-  const [savePresetError, setSavePresetError] = useState<string | null>(null);
-  const [generateRunContext, setGenerateRunContext] = useState<RunContextSnapshot | null>(null);
-  const [debugRunContext, setDebugRunContext] = useState<RunContextSnapshot | null>(null);
-  const [evaluateRunContext, setEvaluateRunContext] = useState<RunContextSnapshot | null>(null);
-  const [continueRunContext, setContinueRunContext] = useState<RunContextSnapshot | null>(null);
-  const [manualGenerateResult, setManualGenerateResult] = useState<GeneratePromptResponse | null>(null);
-  const [manualDebugResult, setManualDebugResult] = useState<DebugPromptResponse | null>(null);
-  const [manualEvaluateResult, setManualEvaluateResult] = useState<EvaluatePromptResponse | null>(null);
-  const [manualContinueResult, setManualContinueResult] = useState<ContinuePromptResponse | null>(null);
-
-  const workflowCatalogQuery = useWorkflowAssetCatalog();
-  const selectedRunPresetQuery = useRunPresetDetail(selectedRunPresetId);
-  const launchPresetMutation = useRunPresetLaunch();
-  const savePresetMutation = useMutation({
-    mutationFn: async () => {
-      setSavePresetError(null);
-      if (!savePresetDraft.name.trim()) {
-        throw new Error('请输入 preset 名称。');
-      }
-      const definition = buildRunPresetDefinition(mode, workflowRefs, generateDraft, debugDraft, evaluateDraft);
-      const { data } = await api.post<RunPresetDetail>('/run-presets', {
-        name: savePresetDraft.name.trim(),
-        description: savePresetDraft.description.trim() || null,
-        definition,
-      });
-      return data;
-    },
-    onSuccess: async (data) => {
-      await workflowCatalogQuery.refetch();
-      setSelectedRunPresetId(data.id);
-      setSavePresetDraft({ name: '', description: '' });
-      setSavePresetError(null);
-    },
-    onError: (error) => {
-      setSavePresetError(error instanceof Error ? error.message : '保存 run preset 失败。');
-    },
-  });
+  const promptLibraryQuery = usePromptLibrary();
+  const createCategoryMutation = useCreatePromptCategory();
+  const deleteCategoryMutation = useDeletePromptCategory();
+  const createAssetMutation = useCreatePromptAsset();
+  const updateAssetMutation = useUpdatePromptAsset();
+  const deleteAssetMutation = useDeletePromptAsset();
+  const createAssetVersionMutation = useCreatePromptAssetVersion();
   const generateMutation = usePromptAgentGenerateStream();
   const debugMutation = usePromptAgentDebug();
   const evaluateMutation = usePromptAgentEvaluate();
-  const continueMutation = usePromptAgentContinue();
+
+  const [mode, setMode] = useState<PromptAgentMode>('generate');
+  const [generateStrategy, setGenerateStrategy] = useState<GenerateStrategy>('optimize');
+  const [generateInput, setGenerateInput] = useState('');
+  const [debugDraft, setDebugDraft] = useState<DebugDraft>(EMPTY_DEBUG_DRAFT);
+  const [evaluateDraft, setEvaluateDraft] = useState<EvaluateDraft>(EMPTY_EVALUATE_DRAFT);
+  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
+  const [promptPanelMode, setPromptPanelMode] = useState<PromptPanelMode>('hidden');
+  const [promptEditor, setPromptEditor] = useState<PromptEditorState>(createEmptyEditor());
+  const [editorFeedback, setEditorFeedback] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState('');
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [groupFormOpen, setGroupFormOpen] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [groupParentId, setGroupParentId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const deferredSearchText = useDeferredValue(searchText);
+  const selectedPromptDetailQuery = usePromptAssetDetail(selectedPromptId);
+
+  const promptLibrary = promptLibraryQuery.data;
+  const libraryCategories = promptLibrary?.categories ?? [];
+  const libraryAssets = promptLibrary?.assets ?? [];
+  const categoryOptions = flattenCategoryOptions(libraryCategories);
 
   useEffect(() => {
-    continueMutation.reset();
-  }, [mode]);
-
-  useEffect(() => {
-    const requestedMode = searchParams.get('mode');
-    if (requestedMode === 'generate' || requestedMode === 'debug' || requestedMode === 'evaluate') {
-      setMode(requestedMode);
+    if (!libraryCategories.length) {
+      return;
     }
-
-    const requestedPresetId = searchParams.get('preset');
-    if (requestedPresetId) {
-      setSelectedRunPresetId(requestedPresetId);
-      setShowWorkflowAssets(true);
-    }
-
-    setWorkspaceScope({
-      domain_workspace_id: searchParams.get('workspace_id'),
-      subject_id: searchParams.get('subject_id'),
-      domain_workspace_label: searchParams.get('workspace_name'),
-      subject_label: searchParams.get('subject_name'),
+    setExpandedCategories((current) => {
+      const next = { ...current };
+      for (const option of categoryOptions) {
+        if (next[option.id] === undefined) {
+          next[option.id] = true;
+        }
+      }
+      return next;
     });
-  }, [searchParams]);
+  }, [categoryOptions.length, libraryCategories.length]);
 
   useEffect(() => {
-    if (
-      hasWorkflowBindings(workflowRefs)
-      || Boolean(selectedRunPresetId)
-      || Boolean(workflowCatalogQuery.error)
-    ) {
-      setShowWorkflowAssets(true);
+    if (!selectedPromptDetailQuery.data || promptPanelMode !== 'edit') {
+      return;
     }
-  }, [selectedRunPresetId, workflowCatalogQuery.error, workflowRefs]);
-
-  const workflowCatalogData = workflowCatalogQuery.data;
-  const selectedRunPreset = selectedRunPresetQuery.data ?? null;
+    setPromptEditor(toEditorState(selectedPromptDetailQuery.data));
+    setEditorFeedback(null);
+  }, [selectedPromptDetailQuery.data?.id, promptPanelMode]);
 
   useEffect(() => {
-    if (!selectedRunPreset) {
-      setWorkflowRefs((current) => (
-        current.run_preset_id
-          ? { ...current, run_preset_id: null }
-          : current
-      ));
+    if (promptLibraryQuery.isLoading) {
       return;
     }
-
-    setWorkflowRefs({
-      context_pack_version_ids: asStringArray(selectedRunPreset.definition.context_pack_version_ids),
-      evaluation_profile_version_id: asString(selectedRunPreset.definition.evaluation_profile_version_id),
-      workflow_recipe_version_id: asString(selectedRunPreset.definition.workflow_recipe_version_id),
-      run_preset_id: selectedRunPreset.id,
-    });
-  }, [selectedRunPreset]);
-
-  const displayGenerateResult = manualGenerateResult ?? generateMutation.data ?? null;
-  const displayDebugResult = manualDebugResult ?? debugMutation.data ?? null;
-  const displayEvaluateResult = manualEvaluateResult ?? evaluateMutation.data ?? null;
-  const directContinueResult = continueMutation.data?.source_mode === mode ? continueMutation.data : null;
-  const activeContinueResult = manualContinueResult?.source_mode === mode
-    ? manualContinueResult
-    : directContinueResult;
-  const activeContinueStreamMeta = manualContinueResult ? null : (continueMutation.meta?.source_mode === mode ? continueMutation.meta : null);
-  const activeContinueStreamingText = manualContinueResult ? '' : (continueMutation.variables?.mode === mode ? continueMutation.streamingText : '');
-  const baseResultByMode: Record<PromptAgentMode, GeneratePromptResponse | DebugPromptResponse | EvaluatePromptResponse | null> = {
-    generate: displayGenerateResult,
-    debug: displayDebugResult,
-    evaluate: displayEvaluateResult,
-  };
-  const activeBaseResult = baseResultByMode[mode];
-  const baseRunContextByMode: Record<PromptAgentMode, RunContextSnapshot | null> = {
-    generate: generateRunContext,
-    debug: debugRunContext,
-    evaluate: evaluateRunContext,
-  };
-  const activeRunContext = activeContinueResult ? continueRunContext : baseRunContextByMode[mode];
-  const activeIteration = activeContinueResult?.iteration ?? activeBaseResult?.iteration ?? null;
-  const baseResultTextByMode: Record<PromptAgentMode, string> = {
-    generate: displayGenerateResult?.final_prompt || '',
-    debug: displayDebugResult?.fixed_prompt || '',
-    evaluate: displayEvaluateResult?.top_issue || '',
-  };
-  const continueSourceTextByMode: Record<PromptAgentMode, string> = {
-    generate: displayGenerateResult?.final_prompt || '',
-    debug: displayDebugResult?.fixed_prompt || '',
-    evaluate: evaluateMutation.variables?.target_text || evaluateDraft.targetText.trim(),
-  };
-  const activeBaseResultText = baseResultTextByMode[mode];
-  const hasBaseResult = Boolean(activeBaseResultText || activeContinueResult);
-  const latestActions = activeContinueResult?.suggested_next_actions ?? (hasBaseResult ? DEFAULT_CONTINUE_ACTIONS[mode] : []);
-  const currentContinueSourceText = activeContinueResult?.refined_result || continueSourceTextByMode[mode];
-  const continueContextNotesByMode: Record<PromptAgentMode, string | undefined> = {
-    generate: undefined,
-    debug: displayDebugResult
-      ? [
-        debugMutation.variables?.original_task || debugDraft.originalTask.trim()
-          ? `原始任务：${debugMutation.variables?.original_task || debugDraft.originalTask.trim()}`
-          : '',
-        `最高风险失败模式：${displayDebugResult.top_failure_mode}`,
-        displayDebugResult.weaknesses.length ? `当前弱点：${displayDebugResult.weaknesses.join(' / ')}` : '',
-        displayDebugResult.missing_control_layers.length
-          ? `建议补强控制层：${displayDebugResult.missing_control_layers.map((layer) => FIX_LAYER_LABELS[layer] ?? layer).join(' / ')}`
-          : '',
-      ].filter(Boolean).join('\n')
-      : undefined,
-    evaluate: displayEvaluateResult
-      ? [
-        `当前评估对象：${(evaluateMutation.variables?.target_type || evaluateDraft.targetType) === 'prompt' ? 'Prompt' : '输出内容'}`,
-        `最主要缺陷：${displayEvaluateResult.top_issue}`,
-        `建议优先修复层：${FIX_LAYER_LABELS[displayEvaluateResult.suggested_fix_layer] ?? displayEvaluateResult.suggested_fix_layer}`,
-        `总分：${displayEvaluateResult.total_score}/35`,
-        displayEvaluateResult.total_interpretation ? `总分解读：${displayEvaluateResult.total_interpretation}` : '',
-      ].filter(Boolean).join('\n')
-      : undefined,
-  };
-  const pendingContinueGoal = continueMutation.isPending && continueMutation.variables?.mode === mode
-    ? continueMutation.variables.optimization_goal
-    : null;
-  const currentContinueError = continueMutation.variables?.mode === mode ? continueMutation.error : null;
-  const launchOverridePreview = getLaunchOverridePreview(mode, generateDraft, debugDraft, evaluateDraft);
-  const workspaceFocusHref = (() => {
-    if (!workspaceScope.domain_workspace_id && !workspaceScope.subject_id) {
-      return null;
+    if (selectedPromptId && !libraryAssets.some((item) => item.id === selectedPromptId)) {
+      setSelectedPromptId(null);
+      setPromptPanelMode('hidden');
     }
-    const params = new URLSearchParams();
-    if (workspaceScope.domain_workspace_id) {
-      params.set('workspace_id', workspaceScope.domain_workspace_id);
-    }
-    if (workspaceScope.subject_id) {
-      params.set('subject_id', workspaceScope.subject_id);
-    }
-    return `/workspaces?${params.toString()}`;
-  })();
+  }, [libraryAssets, promptLibraryQuery.isLoading, selectedPromptId]);
 
-  const handleCopy = async (content: string) => {
-    await navigator.clipboard.writeText(content);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1500);
-  };
-
-  const currentError =
-    (mode === 'generate'
-      ? generateMutation.error
-      : mode === 'debug'
-        ? debugMutation.error
-        : evaluateMutation.error) || currentContinueError || launchPresetMutation.error;
-
-  const activeModeCopy = MODE_CANVAS_COPY[mode];
-
-  const clearManualResultForMode = (targetMode: PromptAgentMode) => {
-    if (targetMode === 'generate') {
-      setManualGenerateResult(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') {
       return;
     }
-    if (targetMode === 'debug') {
-      setManualDebugResult(null);
+    const savedPromptId = window.localStorage.getItem(SELECTED_PROMPT_STORAGE_KEY);
+    if (savedPromptId) {
+      setSelectedPromptId(savedPromptId);
+      setPromptPanelMode('view');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
       return;
     }
-    setManualEvaluateResult(null);
-  };
+    if (selectedPromptId) {
+      window.localStorage.setItem(SELECTED_PROMPT_STORAGE_KEY, selectedPromptId);
+      return;
+    }
+    window.localStorage.removeItem(SELECTED_PROMPT_STORAGE_KEY);
+  }, [selectedPromptId]);
 
-  const resultStack = (
-    <div className="space-y-4">
-      {currentError && (
-        <div className="rounded-[1.5rem] border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm text-red-700 shadow-[0_18px_42px_-32px_rgba(220,38,38,0.38)]">
-          {currentError instanceof Error ? currentError.message : '请求失败，请稍后重试'}
-        </div>
-      )}
-      <ResultPanel
-        mode={mode}
-        generateResult={displayGenerateResult}
-        debugResult={displayDebugResult}
-        evaluateResult={displayEvaluateResult}
-        continueResult={activeContinueResult}
-        continueStreamingText={activeContinueStreamingText}
-        isContinueStreaming={continueMutation.isStreaming && continueMutation.variables?.mode === mode}
-        continueStreamMeta={activeContinueStreamMeta}
-        onCopy={handleCopy}
-        streamingText={generateMutation.streamingText}
-        isStreaming={generateMutation.isStreaming}
-        streamMeta={generateMutation.meta}
-        runContext={activeRunContext}
-        currentIteration={activeIteration}
-      />
-      <ContinueActions
-        actions={latestActions}
-        isLoading={continueMutation.isPending}
-        activeGoal={pendingContinueGoal}
-        completedGoal={activeContinueResult?.optimization_goal ?? null}
-        resultLabel={activeContinueResult?.result_label ?? null}
-        onSelect={(goal) => {
-          if (!currentContinueSourceText) return;
-          const nextRunContext = buildContinueRunContext(activeRunContext);
-          setManualContinueResult(null);
-          setContinueRunContext(nextRunContext);
-          continueMutation.mutate({
-            previous_result: currentContinueSourceText,
-            optimization_goal: goal,
-            mode,
-            context_notes: continueContextNotesByMode[mode],
-            session_id: activeIteration?.session_id ?? undefined,
-            parent_iteration_id: activeIteration?.iteration_id ?? undefined,
-            domain_workspace_id: activeRunContext?.workspace_scope?.domain_workspace_id ?? workspaceScope.domain_workspace_id ?? undefined,
-            subject_id: activeRunContext?.workspace_scope?.subject_id ?? workspaceScope.subject_id ?? undefined,
-            context_pack_version_ids: activeRunContext?.refs.context_pack_version_ids ?? [],
-            evaluation_profile_version_id: activeRunContext?.refs.evaluation_profile_version_id ?? undefined,
-            workflow_recipe_version_id: activeRunContext?.refs.workflow_recipe_version_id ?? undefined,
-            run_preset_id: activeRunContext?.refs.run_preset_id ?? undefined,
-          });
-        }}
-      />
-      {copied && (
-        <div className="rounded-[1.5rem] border border-emerald-200/80 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-700 shadow-[0_18px_42px_-32px_rgba(16,185,129,0.34)]">
-          已复制到剪贴板
-        </div>
-      )}
-    </div>
+  const visibleAssets = libraryAssets.filter((asset) => {
+    if (favoritesOnly && !asset.is_favorite) {
+      return false;
+    }
+    const haystack = [asset.name, asset.description ?? '', asset.tags.join(' ')].join(' ');
+    return matchesSearchText(haystack, deferredSearchText);
+  });
+
+  const assetsByCategory: Record<string, PromptAssetSummary[]> = {};
+  for (const asset of visibleAssets) {
+    const key = asset.category_id ?? '__ungrouped__';
+    if (!assetsByCategory[key]) {
+      assetsByCategory[key] = [];
+    }
+    assetsByCategory[key].push(asset);
+  }
+
+  const selectedPrompt = libraryAssets.find((item) => item.id === selectedPromptId) ?? null;
+  const selectedPromptCategoryLabel = selectedPrompt?.category_id
+    ? categoryOptions.find((item) => item.id === selectedPrompt.category_id)?.label ?? '未归类'
+    : '未归类';
+  const selectedPromptDetail = selectedPromptDetailQuery.data ?? null;
+  const selectedPromptContent = selectedPromptDetail?.current_version?.content ?? '';
+
+  const activeErrorMessage = getErrorMessage(
+    promptLibraryQuery.error
+      || createCategoryMutation.error
+      || deleteCategoryMutation.error
+      || createAssetMutation.error
+      || updateAssetMutation.error
+      || deleteAssetMutation.error
+      || createAssetVersionMutation.error
+      || generateMutation.error
+      || debugMutation.error
+      || evaluateMutation.error,
   );
 
-  return (
-    <div className="bp-shell pb-10 pt-3 md:pt-6">
-      <section className="bp-surface bp-fade-up overflow-hidden px-5 py-6 md:px-8 md:py-8">
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1.08fr)_360px]">
-          <div>
-            <div className="bp-overline">BetterPrompt / Prompt Agent</div>
-            <h1 className="bp-display mt-4 max-w-4xl text-[var(--bp-ink)]">
-              把半成型需求，
-              <br />
-              写成能开工的 Prompt。
-            </h1>
-            <p className="bp-subtitle mt-5 max-w-3xl text-[1.02rem]">
-              这不是一个聊天窗口，而是一张 prompt workbench。你先说清想让模型替你完成什么，系统再负责把任务结构化、重写、修复或评估，最后交付一个真正能用于工作的结果。
-            </p>
+  const generateResult = generateMutation.data;
+  const debugResult = debugMutation.data;
+  const evaluateResult = evaluateMutation.data;
 
-            <div className="mt-6 flex flex-wrap gap-2">
-              {DOMAIN_CHIPS.map(({ icon: Icon, label }) => (
-                <div key={label} className="bp-chip">
-                  <Icon className="h-3.5 w-3.5" />
-                  {label}
+  const outputText = mode === 'generate'
+    ? (generateMutation.streamingText || generateResult?.final_prompt || '')
+    : mode === 'debug'
+      ? (debugResult?.fixed_prompt || '')
+      : evaluateResult
+        ? [
+          `总分 ${evaluateResult.total_score}/35`,
+          '',
+          `最主要问题`,
+          evaluateResult.top_issue,
+          '',
+          `建议优先修复层`,
+          FIX_LAYER_LABELS[evaluateResult.suggested_fix_layer] ?? evaluateResult.suggested_fix_layer,
+          '',
+          `评分说明`,
+          evaluateResult.total_interpretation,
+        ].join('\n')
+        : '';
+
+  const isStreaming = mode === 'generate' && generateMutation.isStreaming;
+  const activeModeCopy = MODE_COPY[mode];
+  const ActiveModeIcon = activeModeCopy.icon;
+
+  function toggleCategory(categoryId: string) {
+    setExpandedCategories((current) => ({
+      ...current,
+      [categoryId]: !(current[categoryId] ?? true),
+    }));
+  }
+
+  function categoryBranchHasContent(category: PromptCategoryTreeItem): boolean {
+    if (matchesSearchText(category.name, deferredSearchText)) {
+      return true;
+    }
+    if ((assetsByCategory[category.id] ?? []).length > 0) {
+      return true;
+    }
+    return category.children.some(categoryBranchHasContent);
+  }
+
+  function categoryBranchCount(category: PromptCategoryTreeItem): number {
+    let count = (assetsByCategory[category.id] ?? []).length;
+    for (const child of category.children) {
+      count += categoryBranchCount(child);
+    }
+    return count;
+  }
+
+  function openPromptViewer(assetId: string) {
+    setSelectedPromptId(assetId);
+    setPromptPanelMode('view');
+    setEditorFeedback(null);
+  }
+
+  function startCreatePrompt(categoryId: string | null = null) {
+    setSelectedPromptId(null);
+    setPromptEditor(createEmptyEditor(categoryId));
+    setPromptPanelMode('create');
+    setEditorFeedback(null);
+  }
+
+  function startEditSelectedPrompt() {
+    if (!selectedPromptDetail) {
+      return;
+    }
+    setPromptEditor(toEditorState(selectedPromptDetail));
+    setPromptPanelMode('edit');
+    setEditorFeedback(null);
+  }
+
+  async function handleSaveGroup() {
+    if (!groupName.trim()) {
+      setEditorFeedback('父级名称不能为空。');
+      return;
+    }
+    const created = await createCategoryMutation.mutateAsync({
+      name: groupName.trim(),
+      parent_id: groupParentId,
+      sort_order: 0,
+    });
+    setExpandedCategories((current) => ({
+      ...current,
+      [created.id]: true,
+    }));
+    setGroupName('');
+    setGroupParentId(null);
+    setGroupFormOpen(false);
+    setEditorFeedback('已创建新的父级提示词组。');
+  }
+
+  async function handleDeleteCategory(categoryId: string) {
+    if (!window.confirm('删除这个父级提示词组？它必须先清空子提示词。')) {
+      return;
+    }
+    await deleteCategoryMutation.mutateAsync(categoryId);
+  }
+
+  async function handleToggleFavorite(asset: PromptAssetSummary) {
+    await updateAssetMutation.mutateAsync({
+      assetId: asset.id,
+      is_favorite: !asset.is_favorite,
+    });
+  }
+
+  async function handleDeletePrompt(assetId: string) {
+    if (!window.confirm('删除这条提示词？')) {
+      return;
+    }
+    await deleteAssetMutation.mutateAsync(assetId);
+    if (selectedPromptId === assetId) {
+      setSelectedPromptId(null);
+    }
+    setPromptPanelMode('hidden');
+  }
+
+  async function handleSavePrompt() {
+    if (!promptEditor.name.trim() || !promptEditor.content.trim()) {
+      setEditorFeedback('提示词名称和正文都不能为空。');
+      return;
+    }
+
+    const normalizedTags = splitTags(promptEditor.tags);
+
+    if (promptPanelMode === 'create') {
+      const created = await createAssetMutation.mutateAsync({
+        category_id: promptEditor.categoryId,
+        name: promptEditor.name.trim(),
+        description: promptEditor.description.trim() || null,
+        content: promptEditor.content.trim(),
+        tags: normalizedTags,
+        change_summary: '首次创建',
+      });
+      setSelectedPromptId(created.id);
+      setPromptPanelMode('view');
+      setPromptEditor(toEditorState(created));
+      setEditorFeedback('提示词已创建并选中。');
+      return;
+    }
+
+    if (!selectedPromptId || !selectedPromptDetail) {
+      return;
+    }
+
+    const currentDetail = selectedPromptDetail;
+    const currentTags = currentDetail.tags.join(',');
+    const nextTags = normalizedTags.join(',');
+    const metadataChanged = (
+      promptEditor.name.trim() !== currentDetail.name
+      || (promptEditor.description.trim() || null) !== currentDetail.description
+      || promptEditor.categoryId !== currentDetail.category_id
+      || currentTags !== nextTags
+    );
+    const contentChanged = promptEditor.content.trim() !== (currentDetail.current_version?.content ?? '');
+
+    if (!metadataChanged && !contentChanged) {
+      setEditorFeedback('没有需要保存的变更。');
+      return;
+    }
+
+    let latestDetail = currentDetail;
+
+    if (metadataChanged) {
+      latestDetail = await updateAssetMutation.mutateAsync({
+        assetId: selectedPromptId,
+        category_id: promptEditor.categoryId,
+        name: promptEditor.name.trim(),
+        description: promptEditor.description.trim() || null,
+        tags: normalizedTags,
+      });
+    }
+
+    if (contentChanged) {
+      latestDetail = await createAssetVersionMutation.mutateAsync({
+        assetId: selectedPromptId,
+        content: promptEditor.content.trim(),
+        source_asset_version_id: currentDetail.current_version?.id ?? null,
+        change_summary: '编辑提示词内容',
+      });
+    }
+
+    setPromptEditor(toEditorState(latestDetail));
+    setPromptPanelMode('view');
+    setEditorFeedback('提示词已保存。');
+  }
+
+  async function handleSubmit() {
+    if (mode === 'generate') {
+      if (!generateInput.trim()) {
+        return;
+      }
+      generateMutation.mutate({
+        user_input: generateInput.trim(),
+        show_diagnosis: false,
+        output_preference: 'balanced',
+        artifact_type: generateStrategy === 'research' ? 'conversation_prompt' : 'task_prompt',
+        prompt_only: false,
+        source_asset_version_id: selectedPrompt?.current_version?.id,
+        context_notes: buildGenerateContextNotes(generateStrategy, selectedPrompt?.name ?? null),
+      });
+      return;
+    }
+
+    if (mode === 'debug') {
+      if (!debugDraft.originalTask.trim() || !debugDraft.currentPrompt.trim() || !debugDraft.currentOutput.trim()) {
+        return;
+      }
+      debugMutation.mutate({
+        original_task: debugDraft.originalTask.trim(),
+        current_prompt: debugDraft.currentPrompt.trim(),
+        current_output: debugDraft.currentOutput.trim(),
+        output_preference: 'balanced',
+      });
+      return;
+    }
+
+    if (!evaluateDraft.targetText.trim()) {
+      return;
+    }
+    evaluateMutation.mutate({
+      target_text: evaluateDraft.targetText.trim(),
+      target_type: evaluateDraft.targetType,
+    });
+  }
+
+  async function handleCopyOutput() {
+    if (!outputText.trim() || !navigator.clipboard) {
+      return;
+    }
+    await navigator.clipboard.writeText(outputText);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  }
+
+  function renderPromptRow(asset: PromptAssetSummary) {
+    const selected = selectedPromptId === asset.id;
+    const activeForEdit = selectedPromptId === asset.id && promptPanelMode === 'edit';
+
+    return (
+      <div
+        key={asset.id}
+        className={`group rounded-[1.2rem] border px-3 py-3 transition-all ${
+          selected
+            ? 'border-[rgba(162,74,53,0.24)] bg-[rgba(162,74,53,0.1)] shadow-[0_14px_34px_-26px_rgba(162,74,53,0.34)]'
+            : 'border-[var(--bp-line)] bg-[rgba(255,255,255,0.66)] hover:border-[var(--bp-line-strong)] hover:bg-[rgba(255,255,255,0.9)]'
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <button
+            type="button"
+            onClick={() => openPromptViewer(asset.id)}
+            className="flex min-w-0 flex-1 items-start gap-3 text-left"
+          >
+            <div className={`mt-1 h-2.5 w-2.5 rounded-full ${selected ? 'bg-[var(--bp-clay)]' : 'bg-[rgba(53,87,104,0.22)]'}`} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-semibold text-[var(--bp-ink)]">{asset.name}</span>
+                {asset.is_favorite ? <Star className="h-3.5 w-3.5 fill-[var(--bp-clay)] text-[var(--bp-clay)]" /> : null}
+              </div>
+              <div className="mt-1 line-clamp-2 text-xs leading-6 text-[var(--bp-ink-soft)]">
+                {asset.description || '这条提示词还没有补充说明。'}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[rgba(93,100,112,0.78)]">
+                <span>v{asset.current_version?.version_number ?? 0}</span>
+                <span>{formatTime(asset.updated_at)}</span>
+                {selected ? <span className="text-[var(--bp-clay)]">已选中</span> : null}
+                {activeForEdit ? <span className="text-[var(--bp-clay)]">正在编辑</span> : null}
+              </div>
+            </div>
+          </button>
+
+          <div className="flex items-center gap-1 opacity-100 xl:opacity-0 xl:transition-opacity xl:group-hover:opacity-100">
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              onClick={() => {
+                openPromptViewer(asset.id);
+                setPromptPanelMode('edit');
+              }}
+              aria-label="编辑提示词"
+            >
+              <PencilLine className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              onClick={() => handleToggleFavorite(asset)}
+              aria-label={asset.is_favorite ? '取消收藏' : '收藏'}
+            >
+              {asset.is_favorite ? <BookmarkCheck className="h-4 w-4 text-[var(--bp-clay)]" /> : <Bookmark className="h-4 w-4" />}
+            </Button>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              onClick={() => handleDeletePrompt(asset.id)}
+              aria-label="删除提示词"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderCategoryBranch(category: PromptCategoryTreeItem): JSX.Element | null {
+    if (!categoryBranchHasContent(category)) {
+      return null;
+    }
+
+    const branchAssets = assetsByCategory[category.id] ?? [];
+    const expanded = expandedCategories[category.id] ?? true;
+    const count = categoryBranchCount(category);
+
+    return (
+      <div key={category.id} className="space-y-3">
+        <div className="rounded-[1.35rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.58)] p-3">
+          <div className="flex items-start justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => toggleCategory(category.id)}
+              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            >
+              {expanded ? <ChevronDown className="h-4 w-4 text-[var(--bp-ink-soft)]" /> : <ChevronRight className="h-4 w-4 text-[var(--bp-ink-soft)]" />}
+              <FolderTree className="h-4 w-4 text-[var(--bp-clay)]" />
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-[var(--bp-ink)]">{category.name}</div>
+                <div className="text-[11px] uppercase tracking-[0.18em] text-[rgba(93,100,112,0.78)]">
+                  {count} 条子提示词
                 </div>
-              ))}
+              </div>
+            </button>
+
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                onClick={() => startCreatePrompt(category.id)}
+                aria-label="在当前父级下新建提示词"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                onClick={() => handleDeleteCategory(category.id)}
+                aria-label="删除父级提示词组"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
 
-          <div className="grid gap-4">
-            <div className="bp-surface-soft px-5 py-5">
-              <div className="bp-overline">{activeModeCopy.badge}</div>
-              <h2 className="bp-title mt-3 text-[2rem]">{activeModeCopy.title}</h2>
-              <p className="mt-3 text-sm leading-7 text-[var(--bp-ink-soft)]">
-                {activeModeCopy.description}
+          {expanded ? (
+            <div className="mt-3 space-y-3 border-t border-[var(--bp-line)] pt-3">
+              {branchAssets.map(renderPromptRow)}
+              {category.children.map((child) => (
+                <div key={child.id} className="pl-4">
+                  {renderCategoryBranch(child)}
+                </div>
+              ))}
+              {branchAssets.length === 0 && category.children.every((child) => !categoryBranchHasContent(child)) ? (
+                <div className="rounded-[1rem] border border-dashed border-[var(--bp-line)] px-3 py-3 text-xs leading-6 text-[var(--bp-ink-soft)]">
+                  这个父级下还没有子提示词。
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  const isPromptModalOpen = promptPanelMode === 'create' || promptPanelMode === 'edit';
+
+  function closePromptModal() {
+    setPromptPanelMode(selectedPromptId ? 'view' : 'hidden');
+    setEditorFeedback(null);
+  }
+
+  function clearSelectedPrompt() {
+    setSelectedPromptId(null);
+    setPromptPanelMode('hidden');
+    setEditorFeedback(null);
+  }
+
+  useEffect(() => {
+    if (!isPromptModalOpen || typeof window === 'undefined') {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPromptPanelMode(selectedPromptId ? 'view' : 'hidden');
+        setEditorFeedback(null);
+      }
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPromptModalOpen, selectedPromptId]);
+
+  return (
+    <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6 px-4 pb-10 pt-8">
+      <section className="bp-surface bp-fade-up overflow-hidden px-6 py-7 md:px-8 md:py-9">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <div className="bp-overline">Prompt Workbench</div>
+            <h1 className="mt-3 max-w-2xl font-[var(--font-display)] text-[clamp(2.5rem,5vw,4.5rem)] leading-[0.95] tracking-[-0.05em] text-[var(--bp-ink)]">
+              让提示词管理、生成与实时输出回到一张更干净的工作台。
+            </h1>
+            <p className="mt-4 max-w-2xl text-[15px] leading-8 text-[var(--bp-ink-soft)]">
+              这个版本把多余展示收起来，只保留真正会影响结果质量的三件事：
+              管理提示词、切换模式、把用户输入编译成更好的 Prompt。
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-[1.4rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.6)] px-4 py-4">
+              <div className="text-[11px] uppercase tracking-[0.2em] text-[rgba(93,100,112,0.78)]">Prompt Tree</div>
+              <div className="mt-2 text-2xl font-semibold text-[var(--bp-ink)]">{libraryAssets.length}</div>
+              <div className="mt-1 text-sm text-[var(--bp-ink-soft)]">可复用子提示词</div>
+            </div>
+            <div className="rounded-[1.4rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.6)] px-4 py-4">
+              <div className="text-[11px] uppercase tracking-[0.2em] text-[rgba(93,100,112,0.78)]">Modes</div>
+              <div className="mt-2 text-2xl font-semibold text-[var(--bp-ink)]">3</div>
+              <div className="mt-1 text-sm text-[var(--bp-ink-soft)]">Generate / Debug / Evaluate</div>
+            </div>
+            <div className="rounded-[1.4rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.6)] px-4 py-4">
+              <div className="text-[11px] uppercase tracking-[0.2em] text-[rgba(93,100,112,0.78)]">Output</div>
+              <div className="mt-2 text-2xl font-semibold text-[var(--bp-ink)]">{isStreaming ? 'Live' : 'Ready'}</div>
+              <div className="mt-1 text-sm text-[var(--bp-ink-soft)]">实时结果落在右侧输出区</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {activeErrorMessage ? (
+        <div className="rounded-[1.4rem] border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm text-red-700 shadow-[0_18px_42px_-32px_rgba(220,38,38,0.38)]">
+          {activeErrorMessage}
+        </div>
+      ) : null}
+
+      <section className="bp-surface overflow-hidden px-5 py-5 md:px-6 md:py-6">
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="bp-overline">Prompt Library</div>
+                <h2 className="mt-2 text-xl font-semibold tracking-tight text-[var(--bp-ink)]">嵌套提示词管理</h2>
+                <p className="mt-2 text-sm leading-7 text-[var(--bp-ink-soft)]">
+                  用父级提示词组组织子提示词；支持收藏、删除与选中参与生成。
+                </p>
+              </div>
+              <div className="rounded-full border border-[rgba(162,74,53,0.16)] bg-[rgba(162,74,53,0.08)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--bp-clay)]">
+                Library
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[28rem]">
+              <div className="rounded-[1.35rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.62)] px-4 py-4">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-[rgba(93,100,112,0.78)]">Prompt Tree</div>
+                <div className="mt-2 text-2xl font-semibold text-[var(--bp-ink)]">{libraryAssets.length}</div>
+                <div className="mt-1 text-sm text-[var(--bp-ink-soft)]">可复用子提示词</div>
+              </div>
+              <div className="rounded-[1.35rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.62)] px-4 py-4">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-[rgba(93,100,112,0.78)]">Selection</div>
+                <div className="mt-2 text-2xl font-semibold text-[var(--bp-ink)]">{selectedPrompt ? '1' : '0'}</div>
+                <div className="mt-1 text-sm text-[var(--bp-ink-soft)]">当前选中的提示词</div>
+              </div>
+              <div className="rounded-[1.35rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.62)] px-4 py-4">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-[rgba(93,100,112,0.78)]">Edit</div>
+                <div className="mt-2 text-2xl font-semibold text-[var(--bp-ink)]">Modal</div>
+                <div className="mt-1 text-sm text-[var(--bp-ink-soft)]">编辑时以弹窗弹出</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="w-full lg:max-w-[28rem]">
+              <div className="flex items-center gap-2 rounded-[1.25rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.76)] px-3 py-2.5">
+                <Search className="h-4 w-4 text-[var(--bp-ink-soft)]" />
+                <input
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                  placeholder="搜索提示词或标签"
+                  className="w-full bg-transparent text-sm text-[var(--bp-ink)] outline-none placeholder:text-[rgba(93,100,112,0.72)]"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant={favoritesOnly ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFavoritesOnly((current) => !current)}
+                className={favoritesOnly ? 'bp-action-primary border-0' : 'border-[var(--bp-line)] bg-[rgba(255,255,255,0.68)]'}
+              >
+                <Star className="mr-2 h-3.5 w-3.5" />
+                {favoritesOnly ? '只看收藏中' : '全部提示词'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setGroupFormOpen((current) => !current);
+                  setGroupParentId(null);
+                  setGroupName('');
+                  setEditorFeedback(null);
+                }}
+                className="border-[var(--bp-line)] bg-[rgba(255,255,255,0.68)]"
+              >
+                <FolderPlus className="mr-2 h-3.5 w-3.5" />
+                新建父级
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => startCreatePrompt(selectedPrompt?.category_id ?? null)}
+                className="border-[var(--bp-line)] bg-[rgba(255,255,255,0.68)]"
+              >
+                <PencilLine className="mr-2 h-3.5 w-3.5" />
+                新建子提示词
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-[1.4rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.62)] px-4 py-4">
+            <div className="bp-overline">Selected Prompt</div>
+            {selectedPrompt ? (
+              selectedPromptDetailQuery.isLoading ? (
+                <div className="mt-3 text-sm leading-7 text-[var(--bp-ink-soft)]">正在读取提示词内容...</div>
+              ) : (
+                <div className="mt-3 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-lg font-semibold text-[var(--bp-ink)]">{selectedPrompt.name}</div>
+                        <div className="mt-1 text-sm leading-7 text-[var(--bp-ink-soft)]">
+                          {selectedPromptDetail?.description || '这条提示词还没有补充说明。'}
+                        </div>
+                      </div>
+                      {selectedPrompt.is_favorite ? <Star className="mt-1 h-4 w-4 fill-[var(--bp-clay)] text-[var(--bp-clay)]" /> : null}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="bp-chip">{selectedPromptCategoryLabel}</span>
+                      <span className="bp-chip">v{selectedPrompt.current_version?.version_number ?? 0}</span>
+                      <span className="bp-chip">更新于 {formatTime(selectedPrompt.updated_at)}</span>
+                    </div>
+                    <div className="mt-3 rounded-[1.15rem] border border-[var(--bp-line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(247,241,232,0.72))] px-4 py-4 text-sm leading-7 text-[var(--bp-ink)]">
+                      <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[rgba(93,100,112,0.78)]">
+                        当前持久化版本预览
+                      </div>
+                      <div className="max-h-[11rem] overflow-y-auto whitespace-pre-wrap break-words">
+                        {selectedPromptDetail?.current_version?.content ?? '当前还没有提示词正文。'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 xl:w-[16rem] xl:justify-end">
+                    <Button type="button" onClick={startEditSelectedPrompt} className="bp-action-primary border-0">
+                      <PencilLine className="mr-2 h-4 w-4" />
+                      编辑当前提示词
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void handleToggleFavorite(selectedPrompt)}
+                      className="border-[var(--bp-line)] bg-[rgba(255,255,255,0.68)]"
+                    >
+                      {selectedPrompt.is_favorite ? '取消收藏' : '加入收藏'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={clearSelectedPrompt}
+                      className="border-[var(--bp-line)] bg-[rgba(255,255,255,0.68)]"
+                    >
+                      取消选中
+                    </Button>
+                  </div>
+                </div>
+              )
+            ) : (
+              <div className="mt-3 text-sm leading-7 text-[var(--bp-ink-soft)]">
+                选中任意一条提示词后，会在这里展示它的完整预览；点击编辑时会以弹窗方式打开，不再占用主工作区。
+              </div>
+            )}
+          </div>
+
+          {groupFormOpen ? (
+            <div className="rounded-[1.4rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.62)] p-4">
+              <div className="text-sm font-semibold text-[var(--bp-ink)]">创建父级提示词组</div>
+              <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(16rem,0.7fr)_auto] md:items-end">
+                <div className="space-y-2">
+                  <FieldLabel title="父级名称" />
+                  <input
+                    value={groupName}
+                    onChange={(event) => setGroupName(event.target.value)}
+                    placeholder="例如：市场研究"
+                    className="bp-input rounded-[1.1rem] px-4 py-3 text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <FieldLabel title="上级分组" hint="留空则创建为顶层父级。" />
+                  <select
+                    value={groupParentId ?? ''}
+                    onChange={(event) => setGroupParentId(event.target.value || null)}
+                    className="bp-input rounded-[1.1rem] px-4 py-3 text-sm"
+                  >
+                    <option value="">顶层父级</option>
+                    {categoryOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2 md:justify-end">
+                  <Button type="button" onClick={() => void handleSaveGroup()} disabled={createCategoryMutation.isPending}>
+                    {createCategoryMutation.isPending ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                    保存父级
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setGroupFormOpen(false)}>
+                    取消
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="max-h-[34rem] space-y-3 overflow-y-auto pr-1">
+            {promptLibraryQuery.isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="skeleton h-20 rounded-[1.2rem]" />
+                ))}
+              </div>
+            ) : (
+              <>
+                {libraryCategories.map((category) => renderCategoryBranch(category))}
+
+                {(assetsByCategory.__ungrouped__ ?? []).length > 0 ? (
+                  <div className="rounded-[1.35rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.58)] p-3">
+                    <div className="mb-3 text-sm font-semibold text-[var(--bp-ink)]">未归类提示词</div>
+                    <div className="space-y-3">
+                      {(assetsByCategory.__ungrouped__ ?? []).map(renderPromptRow)}
+                    </div>
+                  </div>
+                ) : null}
+
+                {!libraryCategories.length && !(assetsByCategory.__ungrouped__ ?? []).length ? (
+                  <div className="rounded-[1.35rem] border border-dashed border-[var(--bp-line)] px-4 py-6 text-sm leading-7 text-[var(--bp-ink-soft)]">
+                    还没有可用提示词。先创建一个父级，再在下面放入子提示词。
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(360px,0.88fr)]">
+        <section className="bp-surface overflow-hidden px-5 py-5 md:px-6 md:py-6">
+          <div className="flex flex-col gap-5">
+            <div>
+              <div className="bp-overline">Composer</div>
+              <div className="mt-2 flex items-center gap-3">
+                <span className="rounded-full bg-[rgba(162,74,53,0.1)] p-2 text-[var(--bp-clay)]">
+                  <ActiveModeIcon className="h-4 w-4" />
+                </span>
+                <div>
+                  <h2 className="text-[1.65rem] font-semibold tracking-tight text-[var(--bp-ink)]">{activeModeCopy.title}</h2>
+                  <p className="mt-1 text-sm leading-7 text-[var(--bp-ink-soft)]">{activeModeCopy.description}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              {Object.entries(MODE_COPY).map(([entryMode, entry]) => (
+                <ModeCard
+                  key={entryMode}
+                  active={mode === entryMode}
+                  icon={entry.icon}
+                  label={entry.label}
+                  title={entry.title}
+                  description={entry.description}
+                  onClick={() => setMode(entryMode as PromptAgentMode)}
+                />
+              ))}
+            </div>
+
+            {mode === 'generate' ? (
+              <div className="rounded-[1.55rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.62)] p-4">
+                <div className="bp-overline">Generate Strategy</div>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {Object.entries(GENERATE_STRATEGY_COPY).map(([key, entry]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setGenerateStrategy(key as GenerateStrategy)}
+                      className={`rounded-[1.35rem] border px-4 py-4 text-left transition-all ${
+                        generateStrategy === key
+                          ? 'border-[rgba(162,74,53,0.22)] bg-[rgba(162,74,53,0.1)] shadow-[0_18px_42px_-30px_rgba(162,74,53,0.32)]'
+                          : 'border-[var(--bp-line)] bg-[rgba(255,255,255,0.72)] hover:border-[var(--bp-line-strong)] hover:bg-[rgba(255,255,255,0.92)]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-[var(--bp-ink)]">{entry.title}</div>
+                        <span className="rounded-full border border-[rgba(162,74,53,0.14)] bg-[rgba(162,74,53,0.08)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-clay)]">
+                          {entry.badge}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-sm leading-7 text-[var(--bp-ink-soft)]">{entry.description}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="rounded-[1.55rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.64)] p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <div className="bp-overline">Selected Prompt</div>
+                  {selectedPrompt ? (
+                    <>
+                      <div className="mt-2 text-lg font-semibold text-[var(--bp-ink)]">{selectedPrompt.name}</div>
+                      <div className="mt-1 text-sm leading-7 text-[var(--bp-ink-soft)]">
+                        位于 {selectedPromptCategoryLabel}，生成时会把这条提示词的结构与约束一起吸收进去。
+                      </div>
+                    </>
+                  ) : (
+                    <div className="mt-2 text-sm leading-7 text-[var(--bp-ink-soft)]">
+                      当前没有选中的提示词。你仍然可以直接生成，但上方选中后会得到更稳定的结果。
+                    </div>
+                  )}
+                </div>
+
+                {selectedPrompt ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={clearSelectedPrompt}
+                      className="border-[var(--bp-line)] bg-[rgba(255,255,255,0.68)]"
+                    >
+                      取消选中
+                    </Button>
+                    {mode === 'debug' && selectedPromptContent ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDebugDraft((current) => ({ ...current, currentPrompt: selectedPromptContent }))}
+                        className="border-[var(--bp-line)] bg-[rgba(255,255,255,0.68)]"
+                      >
+                        填入当前 Prompt
+                      </Button>
+                    ) : null}
+                    {mode === 'evaluate' && selectedPromptContent ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEvaluateDraft({ targetText: selectedPromptContent, targetType: 'prompt' })}
+                        className="border-[var(--bp-line)] bg-[rgba(255,255,255,0.68)]"
+                      >
+                        作为待评估 Prompt
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {mode === 'generate' ? (
+                <div className="space-y-2">
+                  <FieldLabel
+                    title="用户输入"
+                    hint={generateStrategy === 'optimize'
+                      ? '把你当前已经想到的需求写出来，系统会继续把它扩成更专业的 Prompt。'
+                      : '把模糊的方向写出来，系统会先判断研究领域，再把专家视角和研究方法写进结果。'}
+                  />
+                  <textarea
+                    value={generateInput}
+                    onChange={(event) => setGenerateInput(event.target.value)}
+                    placeholder={generateStrategy === 'optimize'
+                      ? '例如：帮我写一个用于分析竞品官网信息架构的 Prompt。'
+                      : '例如：我想研究一个新行业，但目前还不知道应该从哪些角度切入。'}
+                    className="bp-input min-h-[260px] rounded-[1.45rem] px-5 py-4 text-[15px] leading-8"
+                  />
+                </div>
+              ) : null}
+
+              {mode === 'debug' ? (
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <FieldLabel title="原始任务" hint="你真正想让模型完成什么？" />
+                    <textarea
+                      value={debugDraft.originalTask}
+                      onChange={(event) => setDebugDraft((current) => ({ ...current, originalTask: event.target.value }))}
+                      placeholder="例如：帮我写一个多因素框架来分析某个 SaaS 产品的商业模式。"
+                      className="bp-input min-h-[120px] rounded-[1.35rem] px-4 py-3 text-sm leading-7"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <FieldLabel title="当前 Prompt" hint="贴入正在失败的提示词。" />
+                    <textarea
+                      value={debugDraft.currentPrompt}
+                      onChange={(event) => setDebugDraft((current) => ({ ...current, currentPrompt: event.target.value }))}
+                      placeholder="把你当前在用的 Prompt 粘贴到这里。"
+                      className="bp-input min-h-[160px] rounded-[1.35rem] px-4 py-3 text-sm leading-7"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <FieldLabel title="当前输出" hint="贴入模型给出的失败结果。" />
+                    <textarea
+                      value={debugDraft.currentOutput}
+                      onChange={(event) => setDebugDraft((current) => ({ ...current, currentOutput: event.target.value }))}
+                      placeholder="把模型当前输出粘贴到这里。"
+                      className="bp-input min-h-[140px] rounded-[1.35rem] px-4 py-3 text-sm leading-7"
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {mode === 'evaluate' ? (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant={evaluateDraft.targetType === 'prompt' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setEvaluateDraft((current) => ({ ...current, targetType: 'prompt' }))}
+                      className={evaluateDraft.targetType === 'prompt' ? 'bp-action-primary border-0' : 'border-[var(--bp-line)] bg-[rgba(255,255,255,0.68)]'}
+                    >
+                      评估 Prompt
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={evaluateDraft.targetType === 'output' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setEvaluateDraft((current) => ({ ...current, targetType: 'output' }))}
+                      className={evaluateDraft.targetType === 'output' ? 'bp-action-primary border-0' : 'border-[var(--bp-line)] bg-[rgba(255,255,255,0.68)]'}
+                    >
+                      评估输出
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <FieldLabel
+                      title={evaluateDraft.targetType === 'prompt' ? '待评估 Prompt' : '待评估输出'}
+                      hint="贴入你想判断质量的内容。"
+                    />
+                    <textarea
+                      value={evaluateDraft.targetText}
+                      onChange={(event) => setEvaluateDraft((current) => ({ ...current, targetText: event.target.value }))}
+                      placeholder={evaluateDraft.targetType === 'prompt'
+                        ? '把要评估的 Prompt 粘贴到这里。'
+                        : '把要评估的输出内容粘贴到这里。'}
+                      className="bp-input min-h-[280px] rounded-[1.45rem] px-5 py-4 text-[15px] leading-8"
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 border-t border-[var(--bp-line)] pt-4">
+              <Button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={
+                  generateMutation.isPending
+                  || debugMutation.isPending
+                  || evaluateMutation.isPending
+                }
+                className="bp-action-primary border-0 px-6"
+              >
+                {generateMutation.isPending || debugMutation.isPending || evaluateMutation.isPending
+                  ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                  : <Sparkles className="mr-2 h-4 w-4" />}
+                {activeModeCopy.cta}
+              </Button>
+              <div className="text-sm leading-7 text-[var(--bp-ink-soft)]">
+                {mode === 'generate'
+                  ? `${GENERATE_STRATEGY_COPY[generateStrategy].title}已启用。`
+                  : mode === 'debug'
+                    ? '系统会返回诊断结论与修复版 Prompt。'
+                    : '系统会返回评分、解释和优先修复建议。'}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside className="bp-surface flex min-h-[42rem] flex-col overflow-hidden px-5 py-5 md:px-6 md:py-6 xl:sticky xl:top-24 xl:self-start">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="bp-overline">Live Output</div>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-[var(--bp-ink)]">优化后提示词实时输出区</h2>
+              <p className="mt-2 text-sm leading-7 text-[var(--bp-ink-soft)]">
+                生成中的文本会直接落在这里；Debug 和 Evaluate 结果也会在同一区域收敛展示。
               </p>
             </div>
 
-            <div className="bp-surface-soft px-5 py-5">
-              <div className="bp-overline">Why It Feels Different</div>
-              <div className="mt-4 space-y-4">
-                {WORKBENCH_PRINCIPLES.map(({ icon: Icon, title, description }) => (
-                  <div key={title} className="flex gap-3">
-                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[var(--bp-line)] bg-[rgba(255,255,255,0.72)] text-[var(--bp-clay)]">
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-[var(--bp-ink)]">{title}</div>
-                      <div className="mt-1 text-sm leading-6 text-[var(--bp-ink-soft)]">{description}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="bp-surface mt-6 px-5 py-6 md:px-7">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
-          <div>
-            <div className="bp-overline">Workflow Mode</div>
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--bp-ink)]">先选工作流，再进入专注输入</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--bp-ink-soft)]">
-              Generate 负责把需求改写成成品 Prompt，Debug 负责修复失效结构，Evaluate 负责判断质量和下一轮优先动作。
-            </p>
-            <div className="mt-5">
-              <ModeSelector value={mode} onChange={setMode} />
-            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void handleCopyOutput()}
+              disabled={!outputText.trim()}
+              className="border-[var(--bp-line)] bg-[rgba(255,255,255,0.68)]"
+            >
+              <Clipboard className="mr-2 h-3.5 w-3.5" />
+              {copied ? '已复制' : '复制'}
+            </Button>
           </div>
 
-          <div className="bp-surface-soft px-5 py-5">
-            <div className="bp-overline">Current Flow</div>
-            <div className="mt-4 space-y-3">
-              <div className="bp-meta-card">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">Step 1</div>
-                <div className="mt-2 text-sm font-semibold text-[var(--bp-ink)]">{activeModeCopy.firstStep}</div>
+          <div className="mt-5 rounded-[1.75rem] border border-[var(--bp-line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(247,241,232,0.72))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--bp-line)] pb-3">
+              <div className="flex items-center gap-2">
+                <span className={`h-2.5 w-2.5 rounded-full ${isStreaming ? 'bg-[var(--bp-clay)] pulse-live' : 'bg-[rgba(53,87,104,0.36)]'}`} />
+                <span className="text-sm font-medium text-[var(--bp-ink)]">
+                  {isStreaming ? '正在实时生成...' : outputText ? '结果已准备好' : '等待本轮输出'}
+                </span>
               </div>
-              <div className="bp-meta-card">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">Step 2</div>
-                <div className="mt-2 text-sm font-semibold text-[var(--bp-ink)]">{activeModeCopy.secondStep}</div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[rgba(93,100,112,0.78)]">
+                {mode === 'generate' ? GENERATE_STRATEGY_COPY[generateStrategy].badge : MODE_COPY[mode].label}
               </div>
+            </div>
+
+            <div className="min-h-[25rem] pt-4">
+              {outputText ? (
+                <div className="bp-fade-up whitespace-pre-wrap break-words font-[var(--font-body)] text-[15px] leading-8 text-[var(--bp-ink)]">
+                  {outputText}
+                  {isStreaming ? <span className="ml-1 inline-block h-2.5 w-2.5 rounded-full bg-[var(--bp-clay)] pulse-live align-middle" /> : null}
+                </div>
+              ) : (
+                <div className="flex min-h-[24rem] flex-col justify-center rounded-[1.4rem] border border-dashed border-[var(--bp-line)] px-5 py-6 text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(162,74,53,0.1)] text-[var(--bp-clay)]">
+                    {mode === 'generate' ? <Sparkles className="h-5 w-5" /> : mode === 'debug' ? <ShieldCheck className="h-5 w-5" /> : <BarChart3 className="h-5 w-5" />}
+                  </div>
+                  <div className="mt-4 text-base font-semibold text-[var(--bp-ink)]">结果会在这里连续落下</div>
+                  <div className="mt-2 text-sm leading-7 text-[var(--bp-ink-soft)]">
+                    {mode === 'generate'
+                      ? '上方选中提示词，中间输入需求，然后开始生成。'
+                      : mode === 'debug'
+                        ? '贴入任务、Prompt 和失败输出后，系统会返回修复版 Prompt。'
+                        : '贴入待评估内容后，系统会返回评分、主要问题和下一步建议。'}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      </section>
 
-      <section className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1.04fr)_minmax(360px,0.82fr)]">
-        <div className="space-y-6">
-          {(workspaceScope.domain_workspace_id || workspaceScope.subject_id) && (
-            <section className="bp-surface px-5 py-5 md:px-6">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <div className="bp-overline">Workspace Focus</div>
-                  <h2 className="mt-3 text-xl font-semibold tracking-tight text-[var(--bp-ink)]">当前运行绑定了 V3 workspace scope</h2>
-                  <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--bp-ink-soft)]">
-                    接下来的 Generate / Debug / Evaluate / Continue 以及 preset launch，都会把当前 workspace 与 subject refs 一起写入 session provenance。
-                  </p>
+          {mode === 'generate' && (generateMutation.meta || generateResult) ? (
+            <div className="mt-4 grid gap-3">
+              <div className="rounded-[1.35rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.62)] px-4 py-4">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-[rgba(93,100,112,0.78)]">策略说明</div>
+                <div className="mt-2 text-sm leading-7 text-[var(--bp-ink-soft)]">
+                  {(generateMutation.meta?.optimization_strategy || generateResult?.optimization_strategy || '系统已按当前模式优化用户输入。')}
                 </div>
-                {workspaceFocusHref && (
-                  <Link
-                    to={workspaceFocusHref}
-                    className="inline-flex items-center gap-2 rounded-full border border-[var(--bp-line)] bg-[rgba(255,255,255,0.82)] px-4 py-2 text-sm text-[var(--bp-ink-soft)] transition hover:border-[var(--bp-line-strong)] hover:bg-[rgba(255,255,255,0.94)] hover:text-[var(--bp-ink)]"
-                  >
-                    返回 Workspace
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Link>
-                )}
               </div>
-
-              <div className="mt-5 flex flex-wrap gap-3">
-                <div className="bp-meta-card min-w-[220px]">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">Domain Workspace</div>
-                  <div className="mt-2 break-all text-sm leading-6 text-[var(--bp-ink)]">
-                    {workspaceScope.domain_workspace_label || workspaceScope.domain_workspace_id || '—'}
+              {(generateMutation.meta?.optimized_input || generateResult?.optimized_input) ? (
+                <div className="rounded-[1.35rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.62)] px-4 py-4">
+                  <div className="text-[11px] uppercase tracking-[0.2em] text-[rgba(93,100,112,0.78)]">重构后的任务简报</div>
+                  <div className="mt-2 whitespace-pre-wrap text-sm leading-7 text-[var(--bp-ink-soft)]">
+                    {generateMutation.meta?.optimized_input || generateResult?.optimized_input}
                   </div>
                 </div>
-                <div className="bp-meta-card min-w-[220px]">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">Subject</div>
-                  <div className="mt-2 break-all text-sm leading-6 text-[var(--bp-ink)]">
-                    {workspaceScope.subject_label || workspaceScope.subject_id || '—'}
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          <WorkflowAssetsPanel
-            mode={mode}
-            contextPacks={workflowCatalogData?.contextPacks ?? []}
-            evaluationProfiles={workflowCatalogData?.evaluationProfiles ?? []}
-            workflowRecipes={workflowCatalogData?.workflowRecipes ?? []}
-            runPresets={workflowCatalogQuery.data?.runPresets ?? []}
-            selectedContextPackVersionIds={workflowRefs.context_pack_version_ids}
-            selectedEvaluationProfileVersionId={workflowRefs.evaluation_profile_version_id}
-            selectedWorkflowRecipeVersionId={workflowRefs.workflow_recipe_version_id}
-            selectedRunPresetId={selectedRunPresetId}
-            selectedRunPreset={selectedRunPreset}
-            launchOverridePreview={launchOverridePreview}
-            savePresetName={savePresetDraft.name}
-            savePresetDescription={savePresetDraft.description}
-            savePresetError={savePresetError}
-            isCatalogLoading={workflowCatalogQuery.isLoading}
-            catalogError={workflowCatalogQuery.error instanceof Error ? workflowCatalogQuery.error.message : null}
-            isPresetLoading={selectedRunPresetQuery.isLoading}
-            isPresetLaunching={launchPresetMutation.isPending}
-            isSavingPreset={savePresetMutation.isPending}
-            collapsed={!showWorkflowAssets}
-            onToggleCollapsed={() => setShowWorkflowAssets((current) => !current)}
-            onToggleContextPack={(versionId) => {
-              setWorkflowRefs((current) => {
-                const exists = current.context_pack_version_ids.includes(versionId);
-                return {
-                  ...current,
-                  context_pack_version_ids: exists
-                    ? current.context_pack_version_ids.filter((item) => item !== versionId)
-                    : [...current.context_pack_version_ids, versionId],
-                };
-              });
-            }}
-            onSelectEvaluationProfile={(versionId) => {
-              setWorkflowRefs((current) => ({
-                ...current,
-                evaluation_profile_version_id: versionId,
-              }));
-            }}
-            onSelectWorkflowRecipe={(versionId) => {
-              setWorkflowRefs((current) => ({
-                ...current,
-                workflow_recipe_version_id: versionId,
-              }));
-            }}
-            onSelectRunPreset={setSelectedRunPresetId}
-            onChangeSavePreset={(patch) => {
-              setSavePresetDraft((current) => ({ ...current, ...patch }));
-            }}
-            onLaunchPreset={(modeBehavior) => {
-              if (!selectedRunPreset) return;
-              continueMutation.reset();
-              setManualContinueResult(null);
-              setContinueRunContext(null);
-              const launchModeLabel = modeBehavior === 'current'
-                ? `Run Preset · 当前工作流 ${mode.toUpperCase()}`
-                : 'Run Preset · Preset Default Mode';
-              const nextRunContext = buildPresetRunContext(selectedRunPreset, workspaceScope, workflowCatalogData, launchModeLabel);
-              launchPresetMutation.mutate({
-                runPresetId: selectedRunPreset.id,
-                payload: {
-                  session_id: activeIteration?.session_id ?? undefined,
-                  parent_iteration_id: activeIteration?.iteration_id ?? undefined,
-                  domain_workspace_id: workspaceScope.domain_workspace_id ?? undefined,
-                  subject_id: workspaceScope.subject_id ?? undefined,
-                  mode_override: modeBehavior === 'current' ? mode : undefined,
-                  user_input_override: launchOverridePreview || undefined,
-                },
-              }, {
-                onSuccess: (response) => {
-                  const nextMode = getLaunchResponseMode(response);
-                  if (response.mode === 'generate') {
-                    setManualGenerateResult(response);
-                    setGenerateRunContext(nextRunContext);
-                  } else if (response.mode === 'debug') {
-                    setManualDebugResult(response);
-                    setDebugRunContext(nextRunContext);
-                  } else if (response.mode === 'evaluate') {
-                    setManualEvaluateResult(response);
-                    setEvaluateRunContext(nextRunContext);
-                  } else {
-                    continueMutation.reset();
-                    setManualContinueResult(response);
-                    setContinueRunContext(buildContinueRunContext(nextRunContext));
-                  }
-                  setMode(nextMode);
-                },
-              });
-            }}
-            onSaveCurrentAsPreset={() => {
-              savePresetMutation.mutate();
-            }}
-          />
-
-          {mode === 'generate' && (
-            <GeneratePanel
-              draft={generateDraft}
-              onChange={(patch) => {
-                setGenerateDraft((current) => ({ ...current, ...patch }));
-              }}
-              isLoading={generateMutation.isPending}
-              onSubmit={(payload) => {
-                continueMutation.reset();
-                setManualContinueResult(null);
-                setContinueRunContext(null);
-                clearManualResultForMode('generate');
-                setGenerateRunContext(buildDirectRunContext(workflowRefs, workspaceScope, workflowCatalogData));
-                generateMutation.mutate({
-                  ...payload,
-                  session_id: activeIteration?.session_id ?? undefined,
-                  domain_workspace_id: workspaceScope.domain_workspace_id ?? undefined,
-                  subject_id: workspaceScope.subject_id ?? undefined,
-                  context_pack_version_ids: workflowRefs.context_pack_version_ids,
-                  evaluation_profile_version_id: workflowRefs.evaluation_profile_version_id,
-                  workflow_recipe_version_id: workflowRefs.workflow_recipe_version_id,
-                });
-              }}
-            />
-          )}
-
-          {mode === 'debug' && (
-            <DebugPanel
-              draft={debugDraft}
-              onChange={(patch) => {
-                setDebugDraft((current) => ({ ...current, ...patch }));
-              }}
-              isLoading={debugMutation.isPending}
-              onSubmit={(payload) => {
-                continueMutation.reset();
-                setManualContinueResult(null);
-                setContinueRunContext(null);
-                clearManualResultForMode('debug');
-                setDebugRunContext(buildDirectRunContext(workflowRefs, workspaceScope, workflowCatalogData));
-                debugMutation.mutate({
-                  ...payload,
-                  session_id: activeIteration?.session_id ?? undefined,
-                  domain_workspace_id: workspaceScope.domain_workspace_id ?? undefined,
-                  subject_id: workspaceScope.subject_id ?? undefined,
-                  context_pack_version_ids: workflowRefs.context_pack_version_ids,
-                  evaluation_profile_version_id: workflowRefs.evaluation_profile_version_id,
-                  workflow_recipe_version_id: workflowRefs.workflow_recipe_version_id,
-                });
-              }}
-            />
-          )}
-
-          {mode === 'evaluate' && (
-            <EvaluatePanel
-              draft={evaluateDraft}
-              onChange={(patch) => {
-                setEvaluateDraft((current) => ({ ...current, ...patch }));
-              }}
-              isLoading={evaluateMutation.isPending}
-              onSubmit={(payload) => {
-                continueMutation.reset();
-                setManualContinueResult(null);
-                setContinueRunContext(null);
-                clearManualResultForMode('evaluate');
-                setEvaluateRunContext(buildDirectRunContext(workflowRefs, workspaceScope, workflowCatalogData));
-                evaluateMutation.mutate({
-                  ...payload,
-                  session_id: activeIteration?.session_id ?? undefined,
-                  domain_workspace_id: workspaceScope.domain_workspace_id ?? undefined,
-                  subject_id: workspaceScope.subject_id ?? undefined,
-                  context_pack_version_ids: workflowRefs.context_pack_version_ids,
-                  evaluation_profile_version_id: workflowRefs.evaluation_profile_version_id,
-                  workflow_recipe_version_id: workflowRefs.workflow_recipe_version_id,
-                });
-              }}
-            />
-          )}
-        </div>
-
-        <aside className="space-y-4 xl:sticky xl:top-6">
-          <section className="bp-surface px-5 py-5 md:px-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="bp-overline">{activeModeCopy.resultEyebrow}</div>
-                <h2 className="bp-title mt-3 text-[2rem]">结果桌面</h2>
-                <p className="mt-3 text-sm leading-7 text-[var(--bp-ink-soft)]">
-                  {activeModeCopy.resultDescription}
-                </p>
-              </div>
-              <div className="hidden rounded-full border border-[var(--bp-line)] bg-[rgba(255,255,255,0.72)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-clay)] sm:block">
-                {activeModeCopy.badge}
-              </div>
+              ) : null}
             </div>
+          ) : null}
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="bp-meta-card">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">Primary Output</div>
-                <div className="mt-2 text-sm font-semibold text-[var(--bp-ink)]">
-                  {mode === 'generate' ? '最终执行 Prompt' : mode === 'debug' ? '修复后 Prompt' : '评分与优化建议'}
-                </div>
+          {mode === 'debug' && debugResult ? (
+            <div className="mt-4 grid gap-3">
+              <div className="rounded-[1.35rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.62)] px-4 py-4">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-[rgba(93,100,112,0.78)]">主要失效模式</div>
+                <div className="mt-2 text-sm font-semibold text-[var(--bp-ink)]">{debugResult.top_failure_mode}</div>
+                {debugResult.weaknesses.length ? (
+                  <div className="mt-2 text-sm leading-7 text-[var(--bp-ink-soft)]">
+                    当前弱点：{debugResult.weaknesses.join(' / ')}
+                  </div>
+                ) : null}
               </div>
-              <div className="bp-meta-card">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">Next Move</div>
-                <div className="mt-2 text-sm font-semibold text-[var(--bp-ink)]">
-                  {hasBaseResult ? '继续沿结果优化' : '先完成当前输入'}
+              {debugResult.missing_control_layers.length ? (
+                <div className="rounded-[1.35rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.62)] px-4 py-4">
+                  <div className="text-[11px] uppercase tracking-[0.2em] text-[rgba(93,100,112,0.78)]">建议补强层</div>
+                  <div className="mt-2 text-sm leading-7 text-[var(--bp-ink-soft)]">
+                    {debugResult.missing_control_layers.map((item) => FIX_LAYER_LABELS[item] ?? item).join(' / ')}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {mode === 'evaluate' && evaluateResult ? (
+            <div className="mt-4 grid gap-3">
+              <div className="rounded-[1.35rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.62)] px-4 py-4">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-[rgba(93,100,112,0.78)]">分数</div>
+                <div className="mt-2 text-3xl font-semibold tracking-tight text-[var(--bp-ink)]">{evaluateResult.total_score}/35</div>
+                <div className="mt-2 text-sm leading-7 text-[var(--bp-ink-soft)]">{evaluateResult.total_interpretation}</div>
+              </div>
+              <div className="rounded-[1.35rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.62)] px-4 py-4">
+                <div className="text-[11px] uppercase tracking-[0.2em] text-[rgba(93,100,112,0.78)]">优先修复项</div>
+                <div className="mt-2 text-sm font-semibold text-[var(--bp-ink)]">{evaluateResult.top_issue}</div>
+                <div className="mt-2 text-sm leading-7 text-[var(--bp-ink-soft)]">
+                  建议先补强 {FIX_LAYER_LABELS[evaluateResult.suggested_fix_layer] ?? evaluateResult.suggested_fix_layer}
                 </div>
               </div>
             </div>
-          </section>
-
-          {resultStack}
+          ) : null}
         </aside>
       </section>
+
+      {isPromptModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(28,34,43,0.42)] px-4 py-6 backdrop-blur-sm"
+          onClick={closePromptModal}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="prompt-modal-title"
+            aria-describedby="prompt-modal-description"
+            className="bp-surface max-h-[calc(100vh-3rem)] w-full max-w-[52rem] overflow-y-auto px-5 py-5 md:px-6 md:py-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="bp-overline">{promptPanelMode === 'create' ? 'New Prompt' : 'Edit Prompt'}</div>
+                <h3 id="prompt-modal-title" className="mt-2 text-xl font-semibold text-[var(--bp-ink)]">
+                  {promptPanelMode === 'create' ? '新建子提示词' : '编辑当前提示词'}
+                </h3>
+                <p id="prompt-modal-description" className="mt-2 text-sm leading-7 text-[var(--bp-ink-soft)]">
+                  保存后会立即持久化到提示词库；如果正文改动，会自动创建新版本。
+                </p>
+              </div>
+              <Button type="button" variant="ghost" size="icon-sm" onClick={closePromptModal} aria-label="关闭编辑弹窗">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <FieldLabel title="提示词名称" />
+                  <input
+                    value={promptEditor.name}
+                    onChange={(event) => {
+                      setPromptEditor((current) => ({ ...current, name: event.target.value }));
+                      setEditorFeedback(null);
+                    }}
+                    placeholder="例如：行业研究深挖"
+                    className="bp-input rounded-[1.15rem] px-4 py-3 text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <FieldLabel title="所在父级" />
+                  <select
+                    value={promptEditor.categoryId ?? ''}
+                    onChange={(event) => {
+                      setPromptEditor((current) => ({ ...current, categoryId: event.target.value || null }));
+                      setEditorFeedback(null);
+                    }}
+                    className="bp-input rounded-[1.15rem] px-4 py-3 text-sm"
+                  >
+                    <option value="">未归类</option>
+                    {categoryOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <FieldLabel title="说明" hint="一句话告诉自己这条提示词适合什么任务。" />
+                <textarea
+                  value={promptEditor.description}
+                  onChange={(event) => {
+                    setPromptEditor((current) => ({ ...current, description: event.target.value }));
+                    setEditorFeedback(null);
+                  }}
+                  placeholder="例如：适合拿来把模糊的行业问题扩成研究型 Prompt。"
+                  className="bp-input min-h-[92px] rounded-[1.15rem] px-4 py-3 text-sm leading-7"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <FieldLabel title="标签" hint="用逗号分隔，例如：研究, 商业, 深挖" />
+                <input
+                  value={promptEditor.tags}
+                  onChange={(event) => {
+                    setPromptEditor((current) => ({ ...current, tags: event.target.value }));
+                    setEditorFeedback(null);
+                  }}
+                  placeholder="研究, 商业, 深挖"
+                  className="bp-input rounded-[1.15rem] px-4 py-3 text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <FieldLabel title="提示词正文" />
+                <textarea
+                  value={promptEditor.content}
+                  onChange={(event) => {
+                    setPromptEditor((current) => ({ ...current, content: event.target.value }));
+                    setEditorFeedback(null);
+                  }}
+                  placeholder="把这条子提示词的核心结构写在这里。"
+                  className="bp-input min-h-[260px] rounded-[1.15rem] px-4 py-3 text-sm leading-7"
+                />
+              </div>
+
+              {selectedPromptDetailQuery.isLoading && promptPanelMode === 'edit' ? (
+                <div className="text-xs leading-6 text-[var(--bp-ink-soft)]">正在读取提示词详情...</div>
+              ) : null}
+
+              {selectedPromptDetail?.current_version && promptPanelMode === 'edit' ? (
+                <div className="rounded-[1.15rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.56)] px-4 py-3 text-xs leading-6 text-[var(--bp-ink-soft)]">
+                  当前版本 v{selectedPromptDetail.current_version.version_number} · 最近更新 {formatTime(selectedPromptDetail.current_version.created_at)}
+                </div>
+              ) : null}
+
+              {editorFeedback ? (
+                <div className="rounded-[1rem] border border-[rgba(162,74,53,0.16)] bg-[rgba(162,74,53,0.08)] px-3 py-2 text-xs leading-6 text-[var(--bp-clay)]">
+                  {editorFeedback}
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap items-center gap-2 border-t border-[var(--bp-line)] pt-4">
+                <Button
+                  type="button"
+                  onClick={() => void handleSavePrompt()}
+                  disabled={createAssetMutation.isPending || updateAssetMutation.isPending || createAssetVersionMutation.isPending}
+                  className="bp-action-primary border-0"
+                >
+                  {createAssetMutation.isPending || updateAssetMutation.isPending || createAssetVersionMutation.isPending
+                    ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                    : <Sparkles className="mr-2 h-4 w-4" />}
+                  {promptPanelMode === 'create' ? '创建提示词' : '保存修改'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={closePromptModal}
+                  className="border-[var(--bp-line)] bg-[rgba(255,255,255,0.68)]"
+                >
+                  取消
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

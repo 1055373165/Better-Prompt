@@ -9,6 +9,7 @@ from app.api.v1.context_packs import router as context_packs_router
 from app.api.v1.domain_workspaces import router as domain_workspaces_router
 from app.api.v1.evaluation_profiles import router as evaluation_profiles_router
 from app.api.v1.prompt_agent import router as prompt_agent_router
+from app.api.v1.prompt_assets import router as prompt_assets_router
 from app.api.v1.prompt_sessions import router as prompt_sessions_router
 from app.api.v1.run_presets import router as run_presets_router
 from app.api.v1.workflow_recipes import router as workflow_recipes_router
@@ -36,6 +37,7 @@ async def health() -> dict[str, str]:
 
 
 app.include_router(prompt_agent_router, prefix='/api/v1')
+app.include_router(prompt_assets_router, prefix='/api/v1')
 app.include_router(prompt_sessions_router, prefix='/api/v1')
 app.include_router(context_packs_router, prefix='/api/v1')
 app.include_router(evaluation_profiles_router, prefix='/api/v1')

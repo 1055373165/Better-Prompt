@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
@@ -28,6 +28,10 @@ def _load_json_dict(raw_value: str | None) -> dict[str, Any]:
     except json.JSONDecodeError:
         return {}
     return value if isinstance(value, dict) else {}
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class RunPresetLaunchService:
@@ -158,7 +162,7 @@ class RunPresetLaunchService:
 
     async def mark_used(self, run_preset_id: str) -> None:
         preset = await self._require_preset(run_preset_id)
-        preset.last_used_at = datetime.utcnow()
+        preset.last_used_at = _utcnow()
         await self.db.commit()
 
     async def _resolve_launch_mode(self, mode_override: str | None, definition: dict[str, Any]) -> str:
