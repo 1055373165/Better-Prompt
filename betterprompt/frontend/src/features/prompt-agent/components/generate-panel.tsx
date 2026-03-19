@@ -84,54 +84,40 @@ export function GeneratePanel({
       prompt_only: draft.promptOnly,
     });
   };
+
   const actionLabel = isLoading ? '生成中...' : '开始生成';
 
   return (
-    <div className="overflow-hidden rounded-[2rem] border border-white/80 bg-white/88 shadow-[0_28px_80px_-46px_rgba(15,23,42,0.28)] backdrop-blur-xl">
-      <div className="border-b border-slate-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] px-6 py-5">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-              <LayoutTemplate className="h-3.5 w-3.5" />
-              Unified Composer
+    <div className="bp-surface overflow-hidden px-5 py-6 md:px-7">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div>
+          <div className="bp-overline">Intent Draft</div>
+          <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--bp-ink)]">把你的真实目标写出来</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--bp-ink-soft)]">
+            不需要先想清楚 Prompt 结构。你可以直接贴原始 prompt、任务描述或一句模糊想法，系统会识别背后的元需求，并重写成更强的最终 Prompt。
+          </p>
+        </div>
+
+        <div className="bp-surface-soft px-4 py-4">
+          <div className="bp-overline">Current Defaults</div>
+          <div className="mt-4 space-y-3">
+            <div className="bp-meta-card">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">输出类型</div>
+              <div className="mt-2 text-sm font-semibold text-[var(--bp-ink)]">{ARTIFACT_LABELS[draft.artifactType]}</div>
             </div>
-            <h2 className="mt-4 text-lg font-semibold tracking-tight text-slate-950">描述你想让模型帮你做什么</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              不需要先想清楚 Prompt 结构。你可以直接贴原始 prompt、任务描述或一句模糊想法，系统会识别背后的元需求，并重写成更强的最终 Prompt；只有在你主动切换时，才会改成系统提示词或其他高级产物。
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {EXAMPLES.map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  onClick={() => onChange({ userInput: example })}
-                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 transition hover:border-slate-300 hover:bg-white hover:text-slate-900"
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:w-[320px] lg:grid-cols-1">
-            <div className="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 px-4 py-3">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">当前模式</div>
-              <div className="mt-2 text-sm font-medium text-slate-900">Generate</div>
-              <div className="mt-1 text-sm leading-6 text-slate-500">按你的主动选择直接生成，不自动跳转到调试或评估。</div>
-            </div>
-            <div className="rounded-[1.5rem] border border-slate-200/80 bg-white/90 px-4 py-3">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-slate-400">输出目标</div>
-              <div className="mt-1 text-sm font-medium text-slate-900">默认重写为最终执行 Prompt</div>
-              <div className="mt-1 text-sm leading-6 text-slate-500">重点是优化你原始 prompt，而不是替你发明多余的中间流程。</div>
+            <div className="bp-meta-card">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">优化偏好</div>
+              <div className="mt-2 text-sm font-semibold text-[var(--bp-ink)]">{OUTPUT_PREFERENCE_LABELS[draft.outputPreference]}</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="space-y-6 px-6 py-6">
+      <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div>
           <div className="mb-2 flex items-center justify-between gap-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Task Brief</div>
-            <div className="flex items-center gap-2 text-xs text-slate-400">
+            <div className="bp-overline">Task Brief</div>
+            <div className="flex items-center gap-2 text-xs text-[var(--bp-ink-soft)]">
               <Layers3 className="h-3.5 w-3.5" />
               Cmd/Ctrl + Enter 直接生成
             </div>
@@ -139,8 +125,8 @@ export function GeneratePanel({
           <textarea
             value={draft.userInput}
             onChange={(e) => onChange({ userInput: e.target.value })}
-            placeholder="例如：我想实现一个智能选股功能，应该采用哪些策略？&#10;或者：帮我分析一个 SaaS 商业模式。&#10;或者：我会上传英文论文 PDF，需要生成中译版，重点保证排版识别、术语一致和中英对照对齐。"
-            className="min-h-[220px] w-full rounded-[1.6rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fafc)] px-5 py-4 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-200 focus:shadow-[0_0_0_4px_rgba(14,165,233,0.08)]"
+            placeholder="例如：我想实现一个智能选股功能，应该采用哪些策略？&#10;&#10;或者：帮我分析一个 SaaS 商业模式。&#10;&#10;或者：我会上传英文论文 PDF，需要生成中译版，重点保证排版识别、术语一致和中英对照对齐。"
+            className="bp-input min-h-[320px] text-sm leading-8"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
@@ -150,123 +136,156 @@ export function GeneratePanel({
           />
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-200/80 pt-1">
-          <button
-            type="button"
-            onClick={() => setShowAdvanced((current) => !current)}
-            className="flex items-center gap-2 text-sm text-slate-600 transition hover:text-slate-900"
-          >
-            <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
-            高级选项
-          </button>
-          <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-500">
-            {ARTIFACT_LABELS[draft.artifactType]}
-            {' · '}
-            {OUTPUT_PREFERENCE_LABELS[draft.outputPreference]}
+        <div className="space-y-4">
+          <div className="bp-surface-soft px-4 py-4">
+            <div className="bp-overline">Prompt Starters</div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {EXAMPLES.map((example) => (
+                <button
+                  key={example}
+                  type="button"
+                  onClick={() => onChange({ userInput: example })}
+                  className="bp-chip w-full justify-start rounded-[1rem] px-3 py-3 text-left text-xs leading-5"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bp-surface-soft px-4 py-4">
+            <div className="bp-overline">Working Note</div>
+            <p className="mt-3 text-sm leading-7 text-[var(--bp-ink-soft)]">
+              首次输入越接近真实业务目标，系统越容易给出有判断力的成品 Prompt。不要只写“帮我分析一下”，把对象、目标、限制和你在意的结果写进去。
+            </p>
           </div>
         </div>
+      </div>
 
-        {showAdvanced && (
-          <div className="grid gap-4 rounded-[1.6rem] border border-slate-200/80 bg-slate-50/75 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-            <div className="rounded-[1.35rem] border border-slate-200/80 bg-white/90 p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-900">
-                <Settings2 className="h-4 w-4 text-slate-500" />
-                输出控制
-              </div>
-              <div className="grid gap-3">
-                <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
-                  <div>
-                    <div className="font-medium text-slate-900">显示诊断摘要</div>
-                    <div className="mt-1 text-xs text-slate-500">返回任务判断与潜在失败模式</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={draft.showDiagnosis}
-                    onChange={(e) => onChange({ showDiagnosis: e.target.checked })}
-                  />
-                </label>
-                <label className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
-                  <div>
-                    <div className="font-medium text-slate-900">仅输出 Prompt</div>
-                    <div className="mt-1 text-xs text-slate-500">适合直接复制，不附带额外解释</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={draft.promptOnly}
-                    onChange={(e) => onChange({ promptOnly: e.target.checked })}
-                  />
-                </label>
-              </div>
+      <div className="mt-6 flex items-center justify-between gap-4 border-t border-[var(--bp-line)] pt-5">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((current) => !current)}
+          className="inline-flex items-center gap-2 text-sm font-medium text-[var(--bp-ink-soft)] transition hover:text-[var(--bp-ink)]"
+        >
+          <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+          高级选项
+        </button>
+        <div className="rounded-full border border-[var(--bp-line)] bg-[rgba(255,255,255,0.7)] px-3 py-1 text-xs text-[var(--bp-ink-soft)]">
+          {ARTIFACT_LABELS[draft.artifactType]}
+          {' · '}
+          {OUTPUT_PREFERENCE_LABELS[draft.outputPreference]}
+        </div>
+      </div>
+
+      {showAdvanced && (
+        <div className="mt-5 grid gap-4 rounded-[1.5rem] border border-[var(--bp-line)] bg-[rgba(255,252,247,0.72)] p-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[var(--bp-ink)]">
+              <Settings2 className="h-4 w-4 text-[var(--bp-clay)]" />
+              输出控制
             </div>
-
-            <div className="grid gap-4">
+            <label className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.76)] px-4 py-3">
               <div>
-                <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Artifact Type</div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {ARTIFACT_OPTIONS.map(({ value, label, description }) => (
+                <div className="text-sm font-semibold text-[var(--bp-ink)]">显示诊断摘要</div>
+                <div className="mt-1 text-xs leading-5 text-[var(--bp-ink-soft)]">返回任务判断与潜在失败模式</div>
+              </div>
+              <input
+                type="checkbox"
+                checked={draft.showDiagnosis}
+                onChange={(e) => onChange({ showDiagnosis: e.target.checked })}
+                className="mt-1 h-4 w-4 rounded border-[var(--bp-line-strong)] text-[var(--bp-clay)] focus:ring-[var(--bp-clay)]"
+              />
+            </label>
+            <label className="flex items-start justify-between gap-3 rounded-[1.1rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.76)] px-4 py-3">
+              <div>
+                <div className="text-sm font-semibold text-[var(--bp-ink)]">仅输出 Prompt</div>
+                <div className="mt-1 text-xs leading-5 text-[var(--bp-ink-soft)]">适合直接复制，不附带额外解释</div>
+              </div>
+              <input
+                type="checkbox"
+                checked={draft.promptOnly}
+                onChange={(e) => onChange({ promptOnly: e.target.checked })}
+                className="mt-1 h-4 w-4 rounded border-[var(--bp-line-strong)] text-[var(--bp-clay)] focus:ring-[var(--bp-clay)]"
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-5">
+            <div>
+              <div className="bp-overline">Artifact Type</div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {ARTIFACT_OPTIONS.map(({ value, label, description }) => {
+                  const active = draft.artifactType === value;
+
+                  return (
                     <button
                       key={value}
                       type="button"
                       onClick={() => onChange({ artifactType: value })}
-                      className={`rounded-[1.2rem] border px-4 py-3 text-left text-sm transition ${
-                        draft.artifactType === value
-                          ? 'border-slate-900 bg-slate-950 text-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.85)]'
-                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                      className={`rounded-[1.2rem] border px-4 py-3 text-left transition ${
+                        active
+                          ? 'border-[rgba(31,36,45,0.18)] bg-[linear-gradient(135deg,rgba(30,38,52,0.98),rgba(55,65,78,0.98))] text-[#f8f3eb] shadow-[0_18px_42px_-28px_rgba(24,25,27,0.5)]'
+                          : 'border-[var(--bp-line)] bg-[rgba(255,255,255,0.78)] text-[var(--bp-ink)] hover:border-[var(--bp-line-strong)] hover:bg-[rgba(255,255,255,0.92)]'
                       }`}
                     >
-                      <div className="font-medium">{label}</div>
-                      <div className={`mt-1 text-xs leading-5 ${draft.artifactType === value ? 'text-slate-300' : 'text-slate-500'}`}>
+                      <div className="text-sm font-semibold">{label}</div>
+                      <div className={`mt-1 text-xs leading-5 ${active ? 'text-[#d4d8df]' : 'text-[var(--bp-ink-soft)]'}`}>
                         {description}
                       </div>
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
+            </div>
 
-              <div>
-                <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Optimization Preference</div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {[
-                    ['balanced', '平衡'],
-                    ['depth', '深度'],
-                    ['execution', '可执行性'],
-                    ['natural', '自然表达'],
-                  ].map(([value, label]) => (
+            <div>
+              <div className="bp-overline">Optimization Preference</div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {[
+                  ['balanced', '平衡'],
+                  ['depth', '深度'],
+                  ['execution', '可执行性'],
+                  ['natural', '自然表达'],
+                ].map(([value, label]) => {
+                  const active = draft.outputPreference === value;
+
+                  return (
                     <button
                       key={value}
                       type="button"
                       onClick={() => onChange({ outputPreference: value as GenerateOutputPreference })}
-                      className={`rounded-[1.2rem] border px-4 py-3 text-left text-sm transition ${
-                        draft.outputPreference === value
-                          ? 'border-sky-200 bg-sky-50 text-sky-900 shadow-[0_18px_50px_-34px_rgba(14,165,233,0.45)]'
-                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                      className={`rounded-[1.1rem] border px-4 py-3 text-left text-sm font-semibold transition ${
+                        active
+                          ? 'border-[rgba(162,74,53,0.22)] bg-[rgba(162,74,53,0.12)] text-[var(--bp-clay)]'
+                          : 'border-[var(--bp-line)] bg-[rgba(255,255,255,0.78)] text-[var(--bp-ink)] hover:border-[var(--bp-line-strong)] hover:bg-[rgba(255,255,255,0.92)]'
                       }`}
                     >
-                      <div className="font-medium">{label}</div>
+                      {label}
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        <div className="flex flex-col gap-4 border-t border-slate-200/80 pt-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="max-w-xl text-sm leading-6 text-slate-500">
-            先贴你的原始 prompt 或需求就好。Generate 模式默认会把它重写成更高质量的最终执行 Prompt；如果你确实在搭长期代理，再切到系统提示词。
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden text-xs text-slate-400 sm:block">Cmd/Ctrl + Enter 快速提交</div>
-            <Button
-              type="button"
-              className="h-12 rounded-full bg-slate-950 px-6 text-white hover:bg-slate-800"
-              disabled={!draft.userInput.trim() || isLoading}
-              onClick={handlePrimaryAction}
-            >
-              {actionLabel}
-              {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
-            </Button>
-          </div>
+      <div className="mt-6 flex flex-col gap-4 border-t border-[var(--bp-line)] pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="max-w-xl text-sm leading-7 text-[var(--bp-ink-soft)]">
+          默认会把你的原始需求重写成更高质量的最终执行 Prompt。只有当你明确需要长期代理或复杂流程时，再切到系统提示词或分析工作流。
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="hidden text-xs text-[var(--bp-ink-soft)] sm:block">Cmd/Ctrl + Enter 快速提交</div>
+          <Button
+            type="button"
+            className="bp-action-primary h-12 px-6"
+            disabled={!draft.userInput.trim() || isLoading}
+            onClick={handlePrimaryAction}
+          >
+            {actionLabel}
+            {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+          </Button>
         </div>
       </div>
     </div>

@@ -1,18 +1,32 @@
-<<<<<<< HEAD
-INFO:     Started server process [48661]
+INFO:     Started server process [53870]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
-INFO:     127.0.0.1:56732 - "GET /api/v1/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:57006 - "POST /api/v1/prompt-agent/generate/stream HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53845 - "POST /api/v1/prompt-agent/generate/stream HTTP/1.1" 200 OK
-INFO:     127.0.0.1:56852 - "POST /api/v1/prompt-agent/generate/stream HTTP/1.1" 200 OK
-INFO:     127.0.0.1:57488 - "POST /api/v1/prompt-agent/generate/stream HTTP/1.1" 200 OK
-=======
-INFO:     Started server process [52455]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
-INFO:     127.0.0.1:62218 - "GET /api/v1/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:62297 - "POST /api/v1/prompt-agent/generate/stream HTTP/1.1" 200 OK
->>>>>>> 640309379796768a1d5f26b72c42bcdc54ffd44c
+INFO:     Uvicorn running on http://127.0.0.1:8002 (Press CTRL+C to quit)
+INFO:     127.0.0.1:53218 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53233 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53234 - "GET /api/v1/agent-monitors?page=1&page_size=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53235 - "POST /api/v1/domain-workspaces HTTP/1.1" 201 Created
+INFO:     127.0.0.1:53236 - "POST /api/v1/domain-workspaces/adb0bbda-e402-42f6-a1e0-dcc6c23bc323/subjects HTTP/1.1" 201 Created
+INFO:     127.0.0.1:53237 - "POST /api/v1/domain-workspaces/adb0bbda-e402-42f6-a1e0-dcc6c23bc323/sources HTTP/1.1" 201 Created
+INFO:     127.0.0.1:53238 - "POST /api/v1/workflow-recipes HTTP/1.1" 201 Created
+INFO:     127.0.0.1:53239 - "POST /api/v1/run-presets HTTP/1.1" 201 Created
+INFO:     127.0.0.1:53241 - "POST /api/v1/watchlists HTTP/1.1" 201 Created
+INFO:     127.0.0.1:53242 - "PATCH /api/v1/watchlists/7a365b72-7cc5-4219-b4d2-12c38739042a HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53243 - "POST /api/v1/watchlists/7a365b72-7cc5-4219-b4d2-12c38739042a/items HTTP/1.1" 201 Created
+INFO:     127.0.0.1:53244 - "GET /api/v1/watchlists/7a365b72-7cc5-4219-b4d2-12c38739042a/items HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53245 - "GET /api/v1/watchlists?workspace_id=adb0bbda-e402-42f6-a1e0-dcc6c23bc323 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53246 - "POST /api/v1/agent-monitors HTTP/1.1" 201 Created
+INFO:     127.0.0.1:53247 - "PATCH /api/v1/agent-monitors/884608b6-6e26-4789-b218-bcae2eaea4c6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53248 - "GET /api/v1/agent-monitors?workspace_id=adb0bbda-e402-42f6-a1e0-dcc6c23bc323&subject_id=08c99e2d-620a-46a4-b3a8-a5baca08ac68 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53249 - "POST /api/v1/agent-monitors/884608b6-6e26-4789-b218-bcae2eaea4c6/trigger HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53250 - "POST /api/v1/agent-monitors/884608b6-6e26-4789-b218-bcae2eaea4c6/trigger HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53251 - "GET /api/v1/agent-monitors/884608b6-6e26-4789-b218-bcae2eaea4c6/runs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53252 - "GET /api/v1/agent-runs/0f43b22c-3189-4fa5-b884-5c6397d65fc3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53253 - "GET /api/v1/prompt-sessions?run_kind=agent_run&domain_workspace_id=adb0bbda-e402-42f6-a1e0-dcc6c23bc323&subject_id=08c99e2d-620a-46a4-b3a8-a5baca08ac68&agent_monitor_id=884608b6-6e26-4789-b218-bcae2eaea4c6&trigger_kind=manual HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53254 - "GET /api/v1/prompt-sessions/90ee15f4-468d-48f5-88a2-030c9cc006c2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53255 - "GET /api/v1/agent-alerts?workspace_id=adb0bbda-e402-42f6-a1e0-dcc6c23bc323&subject_id=08c99e2d-620a-46a4-b3a8-a5baca08ac68 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53256 - "GET /api/v1/freshness-records?workspace_id=adb0bbda-e402-42f6-a1e0-dcc6c23bc323&subject_id=08c99e2d-620a-46a4-b3a8-a5baca08ac68&source_id=f1901044-8a09-4d9d-b364-589e089b972d HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [53870]

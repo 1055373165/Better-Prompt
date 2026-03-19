@@ -56,6 +56,10 @@ class PromptIterationRef(BaseModel):
 
 class WorkflowAssetRefs(BaseModel):
     session_id: str | None = None
+    domain_workspace_id: str | None = None
+    subject_id: str | None = None
+    agent_monitor_id: str | None = None
+    trigger_kind: str | None = Field(default=None, min_length=1, max_length=40)
     source_asset_version_id: str | None = None
     context_pack_version_ids: list[str] = Field(default_factory=list)
     evaluation_profile_version_id: str | None = None

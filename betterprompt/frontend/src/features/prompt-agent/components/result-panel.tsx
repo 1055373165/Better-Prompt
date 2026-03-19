@@ -11,6 +11,8 @@ import type {
   PromptAgentMode,
   PromptArtifactType,
   PromptDiagnosis,
+  PromptIterationRef,
+  RunContextSnapshot,
 } from '../types';
 
 const ARTIFACT_TYPE_LABELS: Record<string, string> = {
@@ -28,7 +30,7 @@ const ARTIFACT_RESULT_TITLES: Record<string, string> = {
 };
 
 const ARTIFACT_NEXT_STEP_HINTS: Record<string, string> = {
-  system_prompt: '下一步：把这段系统提示词挂到你的代理或工作流配置里。',
+  system_prompt: '下一步：把这段系统提示词接到你的代理或工作流配置里。',
   task_prompt: '下一步：把这段 Prompt 直接发送给目标模型执行。',
   analysis_workflow: '下一步：把这段工作流 Prompt 发给模型，按阶段推进复杂任务。',
   conversation_prompt: '下一步：把这段 Prompt 作为多轮协作开场指令交给目标模型。',
@@ -137,6 +139,8 @@ interface ResultPanelProps {
   streamingText?: string;
   isStreaming?: boolean;
   streamMeta?: StreamMeta | null;
+  runContext?: RunContextSnapshot | null;
+  currentIteration?: PromptIterationRef | null;
 }
 
 function buildRewriteSummary(
@@ -164,6 +168,125 @@ function buildRewriteSummary(
   };
 }
 
+function Surface({
+  title,
+  subtitle,
+  action,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="rounded-[1.7rem] border-[var(--bp-line)] bg-[rgba(255,252,247,0.78)] shadow-[var(--bp-shadow-soft)]">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <CardTitle className="text-sm font-semibold text-[var(--bp-ink)]">{title}</CardTitle>
+            {subtitle && <div className="mt-2 text-sm leading-6 text-[var(--bp-ink-soft)]">{subtitle}</div>}
+          </div>
+          {action}
+        </div>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+function MetaPill({
+  children,
+  tone = 'neutral',
+}: {
+  children: React.ReactNode;
+  tone?: 'neutral' | 'accent';
+}) {
+  return (
+    <div
+      className={
+        tone === 'accent'
+          ? 'rounded-full border border-[rgba(162,74,53,0.2)] bg-[rgba(162,74,53,0.1)] px-3 py-1 text-xs text-[var(--bp-clay)]'
+          : 'rounded-full border border-[var(--bp-line)] bg-[rgba(255,255,255,0.72)] px-3 py-1 text-xs text-[var(--bp-ink-soft)]'
+      }
+    >
+      {children}
+    </div>
+  );
+}
+
+function InfoBlock({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bp-meta-card">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">{label}</div>
+      <div className="mt-2 text-sm leading-6 text-[var(--bp-ink)]">{children}</div>
+    </div>
+  );
+}
+
+function TextSurface({ text }: { text: string }) {
+  return (
+    <div className="rounded-[1.45rem] border border-[var(--bp-line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(249,243,235,0.96))] p-5 text-sm leading-8 whitespace-pre-wrap text-[var(--bp-ink)]">
+      {text}
+    </div>
+  );
+}
+
+function ProvenanceCard({
+  runContext,
+  currentIteration,
+}: {
+  runContext: RunContextSnapshot;
+  currentIteration: PromptIterationRef | null;
+}) {
+  const hasBindings = Boolean(
+    runContext.workspace_scope?.domain_workspace_id
+      || runContext.workspace_scope?.subject_id
+      || runContext.run_preset_label
+      || runContext.workflow_recipe_label
+      || runContext.evaluation_profile_label
+      || runContext.context_pack_labels.length,
+  );
+  const workspaceLabel = runContext.workspace_scope?.domain_workspace_label || runContext.workspace_scope?.domain_workspace_id;
+  const subjectLabel = runContext.workspace_scope?.subject_label || runContext.workspace_scope?.subject_id;
+
+  return (
+    <Surface
+      title="Run Provenance"
+      subtitle="这次结果来自哪条运行链路，以及绑定了哪些 workflow assets 与 workspace scope。"
+    >
+      <div className="grid gap-3 text-sm md:grid-cols-[minmax(0,1fr)_240px]">
+        <InfoBlock label="启动来源">{runContext.launch_label}</InfoBlock>
+        <div className="bp-meta-card">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">Session / Iteration</div>
+          <div className="mt-2 font-mono text-xs leading-6 text-[var(--bp-ink)]">
+            session: {currentIteration?.session_id ?? '未写入'}
+            <br />
+            iteration: {currentIteration?.iteration_id ?? '未写入'}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {workspaceLabel && <MetaPill tone="accent">Workspace · {workspaceLabel}</MetaPill>}
+        {subjectLabel && <MetaPill>Subject · {subjectLabel}</MetaPill>}
+        {runContext.run_preset_label && <MetaPill tone="accent">{runContext.run_preset_label}</MetaPill>}
+        {runContext.workflow_recipe_label && <MetaPill>{runContext.workflow_recipe_label}</MetaPill>}
+        {runContext.evaluation_profile_label && <MetaPill>{runContext.evaluation_profile_label}</MetaPill>}
+        {runContext.context_pack_labels.map((label) => (
+          <MetaPill key={label}>{label}</MetaPill>
+        ))}
+        {!hasBindings && <MetaPill>未绑定 workflow assets 或 workspace scope</MetaPill>}
+      </div>
+    </Surface>
+  );
+}
+
 function RewriteSummaryCard({
   diagnosis,
   appliedModules,
@@ -176,39 +299,23 @@ function RewriteSummaryCard({
   const summary = buildRewriteSummary(diagnosis, appliedModules, artifactType);
 
   return (
-    <Card className="rounded-[1.75rem] border-white/70 bg-white/78 shadow-[0_20px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium text-slate-900">
-          <Sparkles className="h-4 w-4 text-sky-500" />
-          专家重写摘要
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-3 text-sm">
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/85 p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">识别到的专家视角</div>
-            <div className="mt-2 font-medium text-slate-900">{summary.expertLabel}</div>
-          </div>
-          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/85 p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">本次重点补强</div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {summary.highlights.map((highlight) => (
-                <div
-                  key={highlight}
-                  className="rounded-full border border-sky-200/80 bg-sky-50 px-3 py-1 text-xs text-sky-900"
-                >
-                  {highlight}
-                </div>
-              ))}
-            </div>
+    <Surface title="专家重写摘要">
+      <div className="grid gap-3 text-sm md:grid-cols-2">
+        <InfoBlock label="识别到的专家视角">{summary.expertLabel}</InfoBlock>
+        <div className="bp-meta-card">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">本次重点补强</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {summary.highlights.map((highlight) => (
+              <MetaPill key={highlight} tone="accent">{highlight}</MetaPill>
+            ))}
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-200/80 bg-[linear-gradient(180deg,#ffffff,#f8fafc)] p-4 leading-6 text-slate-600">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">识别到的元需求</div>
-          <div className="mt-2">{summary.metaNeed}</div>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+      <div className="mt-3 rounded-[1.25rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.66)] p-4 text-sm leading-7 text-[var(--bp-ink-soft)]">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">识别到的元需求</div>
+        <div className="mt-2 text-[var(--bp-ink)]">{summary.metaNeed}</div>
+      </div>
+    </Surface>
   );
 }
 
@@ -225,6 +332,8 @@ export function ResultPanel({
   streamingText = '',
   isStreaming = false,
   streamMeta = null,
+  runContext = null,
+  currentIteration = null,
 }: ResultPanelProps) {
   const continueSourceLabel = continueResult ? CONTINUE_SOURCE_LABELS[continueResult.source_mode] : null;
   const emptyStateTitle = mode === 'generate'
@@ -233,39 +342,29 @@ export function ResultPanel({
       ? '调试诊断会显示在这里'
       : '评估结果会显示在这里';
   const emptyStateDescription = mode === 'generate'
-    ? '先在左侧描述真实业务目标。Generate 默认会返回可直接发送给目标模型的最终 Prompt；高级选项里才切到系统提示词或工作流。'
+    ? '先描述真实业务目标。Generate 默认会返回可直接发送给目标模型的最终 Prompt。'
     : mode === 'debug'
       ? '补充任务、当前 Prompt 和当前输出后，这里会展示问题诊断与修复版本。'
       : '粘贴 Prompt 或输出后，这里会显示评分拆解、主要问题和建议修复方向。';
+  const emptyStateHighlights = mode === 'generate'
+    ? ['诊断摘要', '成品 Prompt', '继续优化动作']
+    : mode === 'debug'
+      ? ['失败模式', '修复后 Prompt', '下一轮补强方向']
+      : ['评分拆解', '主要缺陷', '建议修复层'];
 
   const continueStreamingCard = isContinueStreaming && continueStreamMeta ? (
-    <Card className="rounded-[1.75rem] border-white/70 bg-white/82 shadow-[0_22px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-slate-900">
-              <Loader2 className="h-4 w-4 animate-spin text-sky-500" />
-              {continueStreamMeta.result_label}
-            </CardTitle>
-            <div className="mt-2 text-xs leading-5 text-slate-500">
-              正在基于「{continueStreamMeta.optimization_goal}」持续生成新版本，完成后会自动切到优化结果。
-            </div>
-          </div>
-          <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
-            Continue · {CONTINUE_SOURCE_LABELS[continueStreamMeta.source_mode]}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="rounded-[1.5rem] border border-slate-200/80 bg-[linear-gradient(180deg,#ffffff,#f8fafc)] p-5 text-sm leading-7 whitespace-pre-wrap text-slate-800">
-          {continueStreamingText || '正在等待模型返回首个文本片段...'}
-          {continueStreamingText && <span className="inline-block h-4 w-0.5 animate-pulse bg-sky-500 align-text-bottom" />}
-        </div>
-      </CardContent>
-    </Card>
+    <Surface
+      title={continueStreamMeta.result_label}
+      subtitle={`正在基于「${continueStreamMeta.optimization_goal}」持续生成新版本，完成后会自动切到优化结果。`}
+      action={<MetaPill>Continue · {CONTINUE_SOURCE_LABELS[continueStreamMeta.source_mode]}</MetaPill>}
+    >
+      <div className="rounded-[1.45rem] border border-[var(--bp-line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(249,243,235,0.96))] p-5 text-sm leading-8 whitespace-pre-wrap text-[var(--bp-ink)]">
+        {continueStreamingText || '正在等待模型返回首个文本片段...'}
+        {continueStreamingText && <span className="pulse-live ml-1 inline-block h-4 w-0.5 bg-[var(--bp-clay)] align-text-bottom" />}
+      </div>
+    </Surface>
   ) : null;
 
-  // Streaming state: show progressive output while generating
   if (mode === 'generate' && isStreaming && streamingText) {
     return (
       <div className="space-y-4">
@@ -279,45 +378,32 @@ export function ResultPanel({
         {streamMeta?.diagnosis_visible && streamMeta?.diagnosis && (
           <DiagnosisCard diagnosis={streamMeta.diagnosis} />
         )}
-        <Card className="rounded-[1.85rem] border-white/70 bg-white/82 shadow-[0_22px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-slate-900">
-              <Loader2 className="h-4 w-4 animate-spin text-sky-500" />
-              {ARTIFACT_RESULT_TITLES[streamMeta?.artifact_type ?? 'task_prompt'] ?? '生成中...'}
-            </CardTitle>
-            <div className="mt-2 text-xs leading-5 text-slate-500">
-              {ARTIFACT_NEXT_STEP_HINTS[streamMeta?.artifact_type ?? 'task_prompt'] ?? '生成完成后可直接复制使用。'}
+        <Surface
+          title={ARTIFACT_RESULT_TITLES[streamMeta?.artifact_type ?? 'task_prompt'] ?? '生成中...'}
+          subtitle={ARTIFACT_NEXT_STEP_HINTS[streamMeta?.artifact_type ?? 'task_prompt'] ?? '生成完成后可直接复制使用。'}
+        >
+          {streamMeta && (
+            <div className="mb-4 flex flex-wrap gap-2">
+              <MetaPill>{ARTIFACT_TYPE_LABELS[streamMeta.artifact_type] ?? 'Prompt'}</MetaPill>
             </div>
-          </CardHeader>
-          <CardContent>
-            {streamMeta && (
-              <div className="mb-4 flex flex-wrap gap-2">
-                <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
-                  {ARTIFACT_TYPE_LABELS[streamMeta.artifact_type] ?? 'Prompt'}
-                </div>
-              </div>
-            )}
-            <div className="rounded-[1.5rem] border border-slate-200/80 bg-[linear-gradient(180deg,#ffffff,#f8fafc)] p-5 text-sm leading-7 whitespace-pre-wrap text-slate-800">
-              {streamingText}
-              <span className="inline-block h-4 w-0.5 animate-pulse bg-sky-500 align-text-bottom" />
-            </div>
-          </CardContent>
-        </Card>
+          )}
+          <div className="rounded-[1.45rem] border border-[var(--bp-line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(249,243,235,0.96))] p-5 text-sm leading-8 whitespace-pre-wrap text-[var(--bp-ink)]">
+            {streamingText}
+            <span className="pulse-live ml-1 inline-block h-4 w-0.5 bg-[var(--bp-clay)] align-text-bottom" />
+          </div>
+        </Surface>
       </div>
     );
   }
 
-  // Streaming in progress but no text yet — show a loading skeleton
   if (mode === 'generate' && isStreaming && !streamingText) {
     return (
-      <Card className="rounded-[1.85rem] border-white/70 bg-white/82 shadow-[0_22px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
-        <CardContent className="flex items-center justify-center py-16">
-          <div className="flex items-center gap-3 text-sm text-slate-500">
-            <Loader2 className="h-5 w-5 animate-spin text-sky-500" />
-            正在分析任务并生成最终 Prompt...
-          </div>
-        </CardContent>
-      </Card>
+      <Surface title="正在分析并生成">
+        <div className="flex items-center justify-center gap-3 py-12 text-sm text-[var(--bp-ink-soft)]">
+          <Loader2 className="h-5 w-5 animate-spin text-[var(--bp-clay)]" />
+          正在分析任务并生成最终 Prompt...
+        </div>
+      </Surface>
     );
   }
 
@@ -330,6 +416,7 @@ export function ResultPanel({
 
     return (
       <div className="space-y-4">
+        {runContext && <ProvenanceCard runContext={runContext} currentIteration={currentIteration} />}
         {continueResult.source_mode === 'generate' && generateResult?.diagnosis && (
           <RewriteSummaryCard
             diagnosis={generateResult.diagnosis}
@@ -340,51 +427,47 @@ export function ResultPanel({
         {continueResult.source_mode === 'generate' && generateResult?.diagnosis_visible && generateResult.diagnosis && (
           <DiagnosisCard diagnosis={generateResult.diagnosis} />
         )}
-        <Card className="rounded-[1.75rem] border-white/70 bg-white/75 shadow-[0_20px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-900">继续优化结果</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 text-sm md:grid-cols-[minmax(0,1fr)_220px]">
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">结果关系</div>
-              <div className="mt-2 leading-6 text-slate-700">
+        <Surface title="继续优化结果">
+          <div className="grid gap-3 text-sm md:grid-cols-[minmax(0,1fr)_220px]">
+            <InfoBlock label="结果关系">
+              <>
                 基础结果来源：{continueSourceLabel}
                 <br />
                 本轮优化目标：{continueResult.optimization_goal}
+              </>
+            </InfoBlock>
+            <div className="bp-meta-card">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">当前显示内容</div>
+              <div className="mt-2 text-sm font-semibold text-[var(--bp-ink)]">{continueResult.result_label}</div>
+              <div className="mt-3 inline-flex">
+                <MetaPill>
+                  {continueResult.generation_backend === 'llm'
+                    ? `LLM${continueResult.generation_model ? ` · ${continueResult.generation_model}` : ''}`
+                    : '模板回退'}
+                </MetaPill>
               </div>
-              <div className="mt-3 rounded-xl border border-sky-200/80 bg-sky-50/80 px-3 py-2 text-sm text-sky-900">
+              <div className="mt-3 text-sm leading-6 text-[var(--bp-ink-soft)]">
                 {CONTINUE_SOURCE_HINTS[continueResult.source_mode]}
               </div>
             </div>
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">当前显示内容</div>
-              <div className="mt-2 font-medium text-slate-900">{continueResult.result_label}</div>
-              <div className="mt-3 inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600">
-                {continueResult.generation_backend === 'llm'
-                  ? `LLM${continueResult.generation_model ? ` · ${continueResult.generation_model}` : ''}`
-                  : '模板回退'}
-              </div>
-              <div className="mt-2 text-sm leading-6 text-slate-500">
-                如果还想继续迭代，可以直接使用下方动作按钮在当前版本上继续打磨。
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-[1.75rem] border-white/70 bg-white/75 shadow-[0_20px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium text-slate-900">
-              <Wand2 className="h-4 w-4" />{continueTitle}
-            </CardTitle>
-            <Button variant="ghost" size="sm" className="text-slate-600 hover:bg-slate-100 hover:text-slate-900" onClick={() => onCopy(continueResult.refined_result)}>
-              <Copy className="mr-2 h-4 w-4" />复制
+          </div>
+        </Surface>
+        <Surface
+          title={continueTitle}
+          action={(
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full text-[var(--bp-ink-soft)] hover:bg-[rgba(255,255,255,0.8)] hover:text-[var(--bp-ink)]"
+              onClick={() => onCopy(continueResult.refined_result)}
+            >
+              <Copy className="mr-2 h-4 w-4" />
+              复制
             </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-[1.5rem] border border-slate-200/80 bg-[linear-gradient(180deg,#ffffff,#f8fafc)] p-5 text-sm whitespace-pre-wrap leading-7 text-slate-800">
-              {continueResult.refined_result}
-            </div>
-          </CardContent>
-        </Card>
+          )}
+        >
+          <TextSurface text={continueResult.refined_result} />
+        </Surface>
       </div>
     );
   }
@@ -392,6 +475,7 @@ export function ResultPanel({
   if (mode === 'generate' && generateResult) {
     return (
       <div className="space-y-4">
+        {runContext && <ProvenanceCard runContext={runContext} currentIteration={currentIteration} />}
         {generateResult.diagnosis && (
           <RewriteSummaryCard
             diagnosis={generateResult.diagnosis}
@@ -402,43 +486,32 @@ export function ResultPanel({
         {generateResult.diagnosis_visible && generateResult.diagnosis && (
           <DiagnosisCard diagnosis={generateResult.diagnosis} />
         )}
-        <Card className="rounded-[1.85rem] border-white/70 bg-white/82 shadow-[0_22px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <CardTitle className="text-sm font-medium text-slate-900">
-                  {ARTIFACT_RESULT_TITLES[generateResult.artifact_type] ?? '生成结果'}
-                </CardTitle>
-                <div className="mt-2 text-xs leading-5 text-slate-500">
-                  {ARTIFACT_NEXT_STEP_HINTS[generateResult.artifact_type] ?? '复制后即可继续使用。'}
-                </div>
-              </div>
-              <Button variant="ghost" size="sm" className="text-slate-600 hover:bg-slate-100 hover:text-slate-900" onClick={() => onCopy(generateResult.final_prompt)}>
-                <Copy className="mr-2 h-4 w-4" />复制
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4 flex flex-wrap gap-2">
-              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
-                {ARTIFACT_TYPE_LABELS[generateResult.artifact_type] ?? 'Prompt'}
-              </div>
-              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
-                {generateResult.generation_backend === 'llm'
-                  ? `LLM${generateResult.generation_model ? ` · ${generateResult.generation_model}` : ''}`
-                  : '模板回退'}
-              </div>
-              {generateResult.prompt_only && (
-                <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
-                  仅输出 Prompt
-                </div>
-              )}
-            </div>
-            <div className="rounded-[1.5rem] border border-slate-200/80 bg-[linear-gradient(180deg,#ffffff,#f8fafc)] p-5 text-sm leading-7 whitespace-pre-wrap text-slate-800">
-              {generateResult.final_prompt}
-            </div>
-          </CardContent>
-        </Card>
+        <Surface
+          title={ARTIFACT_RESULT_TITLES[generateResult.artifact_type] ?? '生成结果'}
+          subtitle={ARTIFACT_NEXT_STEP_HINTS[generateResult.artifact_type] ?? '复制后即可继续使用。'}
+          action={(
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full text-[var(--bp-ink-soft)] hover:bg-[rgba(255,255,255,0.8)] hover:text-[var(--bp-ink)]"
+              onClick={() => onCopy(generateResult.final_prompt)}
+            >
+              <Copy className="mr-2 h-4 w-4" />
+              复制
+            </Button>
+          )}
+        >
+          <div className="mb-4 flex flex-wrap gap-2">
+            <MetaPill>{ARTIFACT_TYPE_LABELS[generateResult.artifact_type] ?? 'Prompt'}</MetaPill>
+            <MetaPill>
+              {generateResult.generation_backend === 'llm'
+                ? `LLM${generateResult.generation_model ? ` · ${generateResult.generation_model}` : ''}`
+                : '模板回退'}
+            </MetaPill>
+            {generateResult.prompt_only && <MetaPill tone="accent">仅输出 Prompt</MetaPill>}
+          </div>
+          <TextSurface text={generateResult.final_prompt} />
+        </Surface>
         {continueStreamingCard}
       </div>
     );
@@ -447,46 +520,36 @@ export function ResultPanel({
   if (mode === 'debug' && debugResult) {
     return (
       <div className="space-y-4">
-        <Card className="rounded-[1.75rem] border-white/70 bg-white/75 shadow-[0_20px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-900">调试诊断</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 text-sm md:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">最高风险失败模式</div>
-              <div className="mt-2 font-medium text-slate-900">{debugResult.top_failure_mode}</div>
-            </div>
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">优势</div>
-              <div className="mt-2 leading-6 text-slate-700">{debugResult.strengths.join(' / ')}</div>
-            </div>
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">弱点</div>
-              <div className="mt-2 leading-6 text-slate-700">{debugResult.weaknesses.join(' / ')}</div>
-            </div>
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">建议补强控制层</div>
-              <div className="mt-2 leading-6 text-slate-700">
-                {debugResult.missing_control_layers.map((layer) => FIX_LAYER_LABELS[layer] ?? layer).join(' / ') || '—'}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-[1.75rem] border-white/70 bg-white/75 shadow-[0_20px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-sm font-medium text-slate-900">修复后 Prompt</CardTitle>
-            <Button variant="ghost" size="sm" className="text-slate-600 hover:bg-slate-100 hover:text-slate-900" onClick={() => onCopy(debugResult.fixed_prompt)}>
-              <Copy className="mr-2 h-4 w-4" />复制
+        {runContext && <ProvenanceCard runContext={runContext} currentIteration={currentIteration} />}
+        <Surface title="调试诊断">
+          <div className="grid gap-3 text-sm md:grid-cols-2">
+            <InfoBlock label="最高风险失败模式">{debugResult.top_failure_mode}</InfoBlock>
+            <InfoBlock label="优势">{debugResult.strengths.join(' / ')}</InfoBlock>
+            <InfoBlock label="弱点">{debugResult.weaknesses.join(' / ')}</InfoBlock>
+            <InfoBlock label="建议补强控制层">
+              {debugResult.missing_control_layers.map((layer) => FIX_LAYER_LABELS[layer] ?? layer).join(' / ') || '—'}
+            </InfoBlock>
+          </div>
+        </Surface>
+        <Surface
+          title="修复后 Prompt"
+          action={(
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full text-[var(--bp-ink-soft)] hover:bg-[rgba(255,255,255,0.8)] hover:text-[var(--bp-ink)]"
+              onClick={() => onCopy(debugResult.fixed_prompt)}
+            >
+              <Copy className="mr-2 h-4 w-4" />
+              复制
             </Button>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm">
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">最小修复动作</div>
-              <div className="mt-2 leading-6 text-slate-700">{debugResult.minimal_fix.join(' / ')}</div>
-            </div>
-            <div className="rounded-[1.5rem] border border-slate-200/80 bg-[linear-gradient(180deg,#ffffff,#f8fafc)] p-5 whitespace-pre-wrap leading-7 text-slate-800">{debugResult.fixed_prompt}</div>
-          </CardContent>
-        </Card>
+          )}
+        >
+          <div className="mb-4">
+            <InfoBlock label="最小修复动作">{debugResult.minimal_fix.join(' / ')}</InfoBlock>
+          </div>
+          <TextSurface text={debugResult.fixed_prompt} />
+        </Surface>
         {continueStreamingCard}
       </div>
     );
@@ -495,31 +558,22 @@ export function ResultPanel({
   if (mode === 'evaluate' && evaluateResult) {
     return (
       <div className="space-y-4">
+        {runContext && <ProvenanceCard runContext={runContext} currentIteration={currentIteration} />}
         <ScoreCard scoreBreakdown={evaluateResult.score_breakdown} totalScore={evaluateResult.total_score} />
-        <Card className="rounded-[1.75rem] border-white/70 bg-white/75 shadow-[0_20px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-900">评估建议</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">最主要缺陷</div>
-              <div className="mt-2 font-medium text-slate-900">{evaluateResult.top_issue}</div>
-            </div>
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">建议优先修复层</div>
-              <div className="mt-2 font-medium text-slate-900">{FIX_LAYER_LABELS[evaluateResult.suggested_fix_layer] ?? evaluateResult.suggested_fix_layer}</div>
-            </div>
+        <Surface title="评估建议">
+          <div className="space-y-3 text-sm">
+            <InfoBlock label="最主要缺陷">{evaluateResult.top_issue}</InfoBlock>
+            <InfoBlock label="建议优先修复层">
+              {FIX_LAYER_LABELS[evaluateResult.suggested_fix_layer] ?? evaluateResult.suggested_fix_layer}
+            </InfoBlock>
             {evaluateResult.total_interpretation && (
-              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">总分解读</div>
-                <div className="mt-2 text-sm leading-6 text-slate-700">{evaluateResult.total_interpretation}</div>
-              </div>
+              <InfoBlock label="总分解读">{evaluateResult.total_interpretation}</InfoBlock>
             )}
-            <div className="rounded-[1.5rem] border border-sky-200/80 bg-sky-50/80 p-4 text-slate-600">
-              建议先围绕"{FIX_LAYER_LABELS[evaluateResult.suggested_fix_layer] ?? evaluateResult.suggested_fix_layer}"修一轮，再使用 Continue Optimization 继续迭代。
+            <div className="rounded-[1.2rem] border border-[rgba(162,74,53,0.18)] bg-[rgba(162,74,53,0.1)] p-4 text-sm leading-7 text-[var(--bp-clay)]">
+              建议先围绕“{FIX_LAYER_LABELS[evaluateResult.suggested_fix_layer] ?? evaluateResult.suggested_fix_layer}”修一轮，再使用 Continue Optimization 继续迭代。
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </Surface>
         {continueStreamingCard}
       </div>
     );
@@ -530,9 +584,22 @@ export function ResultPanel({
   }
 
   return (
-    <div className="rounded-[1.85rem] border border-dashed border-slate-300 bg-white/65 p-10 text-center shadow-[0_20px_70px_-42px_rgba(15,23,42,0.16)] backdrop-blur-xl">
-      <div className="text-sm font-medium text-slate-900">{emptyStateTitle}</div>
-      <div className="mt-2 text-sm leading-6 text-slate-500">{emptyStateDescription}</div>
+    <div className="rounded-[1.7rem] border border-dashed border-[var(--bp-line-strong)] bg-[rgba(255,252,247,0.66)] p-6 shadow-[var(--bp-shadow-soft)]">
+      <div className="bp-overline">Desk Standby</div>
+      <div className="mt-3 text-lg font-semibold text-[var(--bp-ink)]">{emptyStateTitle}</div>
+      <div className="mt-2 max-w-[42ch] text-sm leading-7 text-[var(--bp-ink-soft)]">{emptyStateDescription}</div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        {emptyStateHighlights.map((item) => (
+          <div key={item} className="bp-meta-card">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">Incoming</div>
+            <div className="mt-2 text-sm font-semibold text-[var(--bp-ink)]">{item}</div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 inline-flex rounded-full border border-[var(--bp-line)] bg-[rgba(255,255,255,0.78)] px-3 py-1 text-xs text-[var(--bp-ink-soft)]">
+        <Sparkles className="mr-2 h-4 w-4 text-[var(--bp-clay)]" />
+        结果桌面会在你提交后自动填充
+      </div>
     </div>
   );
 }

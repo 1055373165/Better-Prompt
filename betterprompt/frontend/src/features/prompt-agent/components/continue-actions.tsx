@@ -21,20 +21,26 @@ export function ContinueActions({
   if (!actions.length) return null;
 
   const statusText = isLoading && activeGoal
-    ? `正在基于“${activeGoal}”继续优化，结果区会在完成后自动切到新版本。`
+    ? `正在基于“${activeGoal}”继续优化，完成后结果桌面会自动切到新版本。`
     : completedGoal
-      ? `已完成“${completedGoal}”，当前结果区显示的是${resultLabel ?? '优化后版本'}。`
-      : '基于当前结果快速继续迭代，补强深度、可执行性和表达稳定性。';
+      ? `已完成“${completedGoal}”，当前结果桌面显示的是${resultLabel ?? '优化后版本'}。`
+      : '如果第一版已经可用，直接沿着它继续补强深度、可执行性或表达风格。';
 
   return (
-    <div className="rounded-[1.75rem] border border-white/70 bg-white/75 p-5 shadow-[0_20px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
-      <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-        <Sparkles className="h-4 w-4 text-slate-500" />
-        下一步可以继续优化
+    <div className="bp-surface overflow-hidden px-5 py-5">
+      <div className="flex items-center gap-2 text-sm font-semibold text-[var(--bp-ink)]">
+        <Sparkles className="h-4 w-4 text-[var(--bp-clay)]" />
+        Continue Optimization
       </div>
       <div
         aria-live="polite"
-        className={`mt-2 text-sm leading-6 ${isLoading && activeGoal ? 'text-sky-700' : completedGoal ? 'text-emerald-700' : 'text-slate-500'}`}
+        className={`mt-3 text-sm leading-7 ${
+          isLoading && activeGoal
+            ? 'text-[var(--bp-steel)]'
+            : completedGoal
+              ? 'text-emerald-700'
+              : 'text-[var(--bp-ink-soft)]'
+        }`}
       >
         {statusText}
       </div>
@@ -44,12 +50,12 @@ export function ContinueActions({
             key={action}
             type="button"
             variant="outline"
-            className={`rounded-full ${
+            className={`rounded-full border px-4 py-2 text-sm ${
               isLoading && activeGoal === action
-                ? 'border-sky-200 bg-sky-50 text-sky-900 hover:bg-sky-50'
+                ? 'border-[rgba(53,87,104,0.18)] bg-[rgba(53,87,104,0.1)] text-[var(--bp-steel)] hover:bg-[rgba(53,87,104,0.1)]'
                 : !isLoading && completedGoal === action
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-50'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  : 'border-[var(--bp-line)] bg-[rgba(255,255,255,0.78)] text-[var(--bp-ink)] hover:bg-[rgba(255,255,255,0.94)]'
             }`}
             disabled={isLoading}
             onClick={() => onSelect(action)}

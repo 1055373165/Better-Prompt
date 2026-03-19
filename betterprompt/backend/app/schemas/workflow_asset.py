@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -10,6 +12,11 @@ class WorkflowAssetVersionSummary(BaseModel):
     version_number: int
     change_summary: str | None = None
     created_at: datetime
+
+
+class ContextPackVersionDetail(WorkflowAssetVersionSummary):
+    payload: dict[str, Any] = Field(default_factory=dict)
+    source_iteration_id: str | None = None
 
 
 class ContextPackSummary(BaseModel):
@@ -22,6 +29,7 @@ class ContextPackSummary(BaseModel):
 
 
 class ContextPackDetail(ContextPackSummary):
+    current_version: ContextPackVersionDetail | None = None
     created_at: datetime
     archived_at: datetime | None = None
 
@@ -33,7 +41,7 @@ class ListContextPacksResponse(BaseModel):
 class CreateContextPackRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
-    payload: dict[str, object] = Field(default_factory=dict)
+    payload: dict[str, Any] = Field(default_factory=dict)
     tags: list[str] = Field(default_factory=list)
     source_iteration_id: str | None = None
     change_summary: str | None = None
@@ -47,13 +55,17 @@ class UpdateContextPackRequest(BaseModel):
 
 
 class CreateContextPackVersionRequest(BaseModel):
-    payload: dict[str, object] = Field(default_factory=dict)
+    payload: dict[str, Any] = Field(default_factory=dict)
     source_iteration_id: str | None = None
     change_summary: str | None = None
 
 
 class ListContextPackVersionsResponse(BaseModel):
-    items: list[WorkflowAssetVersionSummary] = Field(default_factory=list)
+    items: list[ContextPackVersionDetail] = Field(default_factory=list)
+
+
+class EvaluationProfileVersionDetail(WorkflowAssetVersionSummary):
+    rules: dict[str, Any] = Field(default_factory=dict)
 
 
 class EvaluationProfileSummary(BaseModel):
@@ -65,6 +77,7 @@ class EvaluationProfileSummary(BaseModel):
 
 
 class EvaluationProfileDetail(EvaluationProfileSummary):
+    current_version: EvaluationProfileVersionDetail | None = None
     created_at: datetime
     archived_at: datetime | None = None
 
@@ -76,7 +89,7 @@ class ListEvaluationProfilesResponse(BaseModel):
 class CreateEvaluationProfileRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
-    rules: dict[str, object] = Field(default_factory=dict)
+    rules: dict[str, Any] = Field(default_factory=dict)
     change_summary: str | None = None
 
 
@@ -87,12 +100,17 @@ class UpdateEvaluationProfileRequest(BaseModel):
 
 
 class CreateEvaluationProfileVersionRequest(BaseModel):
-    rules: dict[str, object] = Field(default_factory=dict)
+    rules: dict[str, Any] = Field(default_factory=dict)
     change_summary: str | None = None
 
 
 class ListEvaluationProfileVersionsResponse(BaseModel):
-    items: list[WorkflowAssetVersionSummary] = Field(default_factory=list)
+    items: list[EvaluationProfileVersionDetail] = Field(default_factory=list)
+
+
+class WorkflowRecipeVersionDetail(WorkflowAssetVersionSummary):
+    definition: dict[str, Any] = Field(default_factory=dict)
+    source_iteration_id: str | None = None
 
 
 class WorkflowRecipeSummary(BaseModel):
@@ -105,6 +123,7 @@ class WorkflowRecipeSummary(BaseModel):
 
 
 class WorkflowRecipeDetail(WorkflowRecipeSummary):
+    current_version: WorkflowRecipeVersionDetail | None = None
     created_at: datetime
     archived_at: datetime | None = None
 
@@ -117,7 +136,7 @@ class CreateWorkflowRecipeRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
     domain_hint: str | None = Field(default=None, max_length=80)
-    definition: dict[str, object] = Field(default_factory=dict)
+    definition: dict[str, Any] = Field(default_factory=dict)
     source_iteration_id: str | None = None
     change_summary: str | None = None
 
@@ -130,13 +149,13 @@ class UpdateWorkflowRecipeRequest(BaseModel):
 
 
 class CreateWorkflowRecipeVersionRequest(BaseModel):
-    definition: dict[str, object] = Field(default_factory=dict)
+    definition: dict[str, Any] = Field(default_factory=dict)
     source_iteration_id: str | None = None
     change_summary: str | None = None
 
 
 class ListWorkflowRecipeVersionsResponse(BaseModel):
-    items: list[WorkflowAssetVersionSummary] = Field(default_factory=list)
+    items: list[WorkflowRecipeVersionDetail] = Field(default_factory=list)
 
 
 class RunPresetSummary(BaseModel):
@@ -148,7 +167,7 @@ class RunPresetSummary(BaseModel):
 
 
 class RunPresetDetail(RunPresetSummary):
-    definition: dict[str, object] = Field(default_factory=dict)
+    definition: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     archived_at: datetime | None = None
 
@@ -160,11 +179,21 @@ class ListRunPresetsResponse(BaseModel):
 class CreateRunPresetRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
-    definition: dict[str, object] = Field(default_factory=dict)
+    definition: dict[str, Any] = Field(default_factory=dict)
 
 
 class UpdateRunPresetRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
-    definition: dict[str, object] | None = None
+    definition: dict[str, Any] | None = None
     archived_at: datetime | None = None
+
+
+class RunPresetLaunchRequest(BaseModel):
+    session_id: str | None = None
+    parent_iteration_id: str | None = None
+    domain_workspace_id: str | None = None
+    subject_id: str | None = None
+    mode_override: Literal['generate', 'debug', 'evaluate', 'continue'] | None = None
+    user_input_override: str | None = None
+    run_settings_override: dict[str, Any] = Field(default_factory=dict)

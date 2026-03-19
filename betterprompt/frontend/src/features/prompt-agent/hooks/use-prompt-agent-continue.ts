@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import type { ContinuePromptResponse, PromptAgentMode } from '../types';
+import type { ContinuePromptResponse, PromptAgentMode, PromptIterationRef } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -8,6 +8,14 @@ interface ContinuePayload {
   optimization_goal: string;
   mode: PromptAgentMode;
   context_notes?: string;
+  session_id?: string;
+  parent_iteration_id?: string;
+  domain_workspace_id?: string;
+  subject_id?: string;
+  context_pack_version_ids?: string[];
+  evaluation_profile_version_id?: string | null;
+  workflow_recipe_version_id?: string | null;
+  run_preset_id?: string | null;
 }
 
 interface ContinueStreamMeta {
@@ -64,6 +72,7 @@ export function usePromptAgentContinue(): UsePromptAgentContinueReturn {
     let receivedMeta: ContinueStreamMeta | null = null;
     let generationBackend: 'llm' | 'template' = 'llm';
     let generationModel: string | null = null;
+    let iteration: PromptIterationRef = { session_id: null, iteration_id: null };
 
     (async () => {
       try {
@@ -119,6 +128,10 @@ export function usePromptAgentContinue(): UsePromptAgentContinueReturn {
             } else if (event.event === 'done') {
               generationBackend = (event.generation_backend as 'llm' | 'template') || 'llm';
               generationModel = (event.generation_model as string) || null;
+              iteration = {
+                session_id: (event.session_id as string) || null,
+                iteration_id: (event.iteration_id as string) || null,
+              };
             } else if (event.event === 'error') {
               throw new Error((event.detail as string) || 'Stream error');
             }
@@ -127,6 +140,7 @@ export function usePromptAgentContinue(): UsePromptAgentContinueReturn {
 
         setData({
           mode: 'continue',
+          iteration,
           source_mode: receivedMeta?.source_mode ?? payload.mode,
           optimization_goal: receivedMeta?.optimization_goal ?? payload.optimization_goal,
           refined_result: accumulated,

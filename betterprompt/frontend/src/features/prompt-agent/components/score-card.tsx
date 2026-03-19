@@ -13,20 +13,21 @@ const SCORE_LABELS: Record<keyof EvaluateScoreBreakdown, string> = {
 
 export function ScoreCard({ scoreBreakdown, totalScore }: { scoreBreakdown: EvaluateScoreBreakdown; totalScore: number }) {
   return (
-    <Card className="rounded-[1.75rem] border-white/70 bg-white/75 shadow-[0_20px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
+    <Card className="rounded-[1.7rem] border-[var(--bp-line)] bg-[rgba(255,252,247,0.78)] shadow-[var(--bp-shadow-soft)]">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium text-slate-900">评估结果</CardTitle>
+        <CardTitle className="text-sm font-semibold text-[var(--bp-ink)]">评估结果</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="rounded-[1.5rem] border border-slate-200/80 bg-[linear-gradient(135deg,#0f172a,#1e293b)] px-5 py-4 text-white">
-          <div className="text-3xl font-semibold tracking-tight">{totalScore}</div>
-          <div className="mt-1 text-xs text-slate-300">总分由 7 个维度累计，单项满分 5 分。</div>
+      <CardContent className="space-y-4">
+        <div className="rounded-[1.5rem] border border-[rgba(31,36,45,0.16)] bg-[linear-gradient(135deg,rgba(30,38,52,0.98),rgba(55,65,78,0.98))] px-5 py-5 text-[#f8f3eb]">
+          <div className="bp-overline text-[#d8c8ba]">Total Score</div>
+          <div className="mt-3 text-4xl font-semibold tracking-tight tabular-nums">{totalScore}</div>
+          <div className="mt-2 text-sm leading-6 text-[#d4d8df]">总分由 7 个维度累计，单项满分 5 分。</div>
         </div>
-        <div className="space-y-2 text-sm text-slate-500">
+        <div className="space-y-2 text-sm">
           {Object.entries(scoreBreakdown).map(([key, value]) => (
-            <div key={key} className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3">
-              <span>{SCORE_LABELS[key as keyof EvaluateScoreBreakdown] ?? key}</span>
-              <span className="font-medium text-slate-900">{value}/5</span>
+            <div key={key} className="flex items-center justify-between rounded-[1.15rem] border border-[var(--bp-line)] bg-[rgba(255,255,255,0.66)] px-4 py-3">
+              <span className="text-[var(--bp-ink-soft)]">{SCORE_LABELS[key as keyof EvaluateScoreBreakdown] ?? key}</span>
+              <span className="font-semibold tabular-nums text-[var(--bp-ink)]">{value}/5</span>
             </div>
           ))}
         </div>

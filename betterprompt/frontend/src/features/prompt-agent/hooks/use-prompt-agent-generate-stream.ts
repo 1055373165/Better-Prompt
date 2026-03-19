@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import type { GeneratePromptResponse, PromptArtifactType, PromptDiagnosis } from '../types';
+import type { GeneratePromptResponse, PromptArtifactType, PromptDiagnosis, PromptIterationRef } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -32,6 +32,13 @@ interface UseStreamGenerateReturn {
     artifact_type?: PromptArtifactType;
     prompt_only?: boolean;
     context_notes?: string;
+    session_id?: string;
+    domain_workspace_id?: string;
+    subject_id?: string;
+    context_pack_version_ids?: string[];
+    evaluation_profile_version_id?: string | null;
+    workflow_recipe_version_id?: string | null;
+    run_preset_id?: string | null;
   }) => void;
   /** Reset state */
   reset: () => void;
@@ -71,6 +78,7 @@ export function usePromptAgentGenerateStream(): UseStreamGenerateReturn {
     let receivedMeta: StreamMeta | null = null;
     let generationBackend: 'llm' | 'template' = 'template';
     let generationModel: string | null = null;
+    let iteration: PromptIterationRef = { session_id: null, iteration_id: null };
 
     (async () => {
       try {
@@ -129,6 +137,10 @@ export function usePromptAgentGenerateStream(): UseStreamGenerateReturn {
             } else if (event.event === 'done') {
               generationBackend = (event.generation_backend as 'llm' | 'template') || 'template';
               generationModel = (event.generation_model as string) || null;
+              iteration = {
+                session_id: (event.session_id as string) || null,
+                iteration_id: (event.iteration_id as string) || null,
+              };
             } else if (event.event === 'error') {
               throw new Error((event.detail as string) || 'Stream error');
             }
@@ -138,6 +150,7 @@ export function usePromptAgentGenerateStream(): UseStreamGenerateReturn {
         // Assemble final result
         const finalResult: GeneratePromptResponse = {
           mode: 'generate',
+          iteration,
           diagnosis: receivedMeta?.diagnosis ?? null,
           final_prompt: accumulated,
           artifact_type: receivedMeta?.artifact_type ?? 'task_prompt',

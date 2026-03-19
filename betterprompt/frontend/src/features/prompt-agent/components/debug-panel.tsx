@@ -14,75 +14,74 @@ export function DebugPanel({
   isLoading?: boolean;
 }) {
   return (
-    <div className="overflow-hidden rounded-[2rem] border border-white/80 bg-white/88 shadow-[0_28px_80px_-46px_rgba(15,23,42,0.28)] backdrop-blur-xl">
-      <div className="border-b border-slate-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] px-6 py-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-              <Bug className="h-3.5 w-3.5" />
-              Repair
-            </div>
-            <h2 className="mt-4 text-lg font-semibold tracking-tight text-slate-950">分析 Prompt 的问题并修复</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              把任务背景、当前 Prompt 和当前输出一起给我，我会帮你找出结构缺口，并返回一版更稳定的修复结果。
-            </p>
+    <div className="bp-surface overflow-hidden px-5 py-6 md:px-7">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div>
+          <div className="bp-overline">Repair Brief</div>
+          <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--bp-ink)]">把失效链路摊开，让系统判断哪里坏了</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--bp-ink-soft)]">
+            Debug 最适合处理“结果跑偏、结构失真、约束失效”这种问题。任务目标、当前 Prompt 和实际输出给得越完整，修复建议就越可执行。
+          </p>
+        </div>
+        <div className="bp-surface-soft px-4 py-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--bp-ink)]">
+            <FileWarning className="h-4 w-4 text-[var(--bp-clay)]" />
+            这次会一起诊断什么
           </div>
-          <div className="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 px-4 py-3 lg:w-[320px]">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-              <FileWarning className="h-4 w-4 text-slate-500" />
-              分析范围
-            </div>
-            <div className="mt-2 text-sm leading-6 text-slate-500">
-              从原始任务到最终输出做全链路诊断，尤其适合“结果跑偏、结构失真、约束失效”这类问题。
-            </div>
+          <div className="mt-3 space-y-3 text-sm leading-7 text-[var(--bp-ink-soft)]">
+            <div className="bp-meta-card">任务目标是否表达清楚</div>
+            <div className="bp-meta-card">Prompt 是否缺失关键控制层</div>
+            <div className="bp-meta-card">输出为什么没有按预期执行</div>
           </div>
         </div>
       </div>
-      <div className="space-y-5 px-6 py-6">
+
+      <div className="mt-6 space-y-5">
         <div>
-          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Original Task</div>
+          <div className="mb-2 bp-overline">Original Task</div>
           <textarea
             value={draft.originalTask}
             onChange={(e) => onChange({ originalTask: e.target.value })}
             placeholder="原始任务，例如：帮我分析一个 SaaS 产品的商业模式。"
-            className="min-h-[110px] w-full rounded-[1.5rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fafc)] px-5 py-4 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-200 focus:shadow-[0_0_0_4px_rgba(14,165,233,0.08)]"
+            className="bp-input min-h-[120px] text-sm leading-8"
           />
         </div>
         <div>
-          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Current Prompt</div>
+          <div className="mb-2 bp-overline">Current Prompt</div>
           <textarea
             value={draft.currentPrompt}
             onChange={(e) => onChange({ currentPrompt: e.target.value })}
             placeholder="粘贴当前 Prompt"
-            className="min-h-[170px] w-full rounded-[1.5rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fafc)] px-5 py-4 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-200 focus:shadow-[0_0_0_4px_rgba(14,165,233,0.08)]"
+            className="bp-input min-h-[190px] text-sm leading-8"
           />
         </div>
         <div>
-          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Current Output</div>
+          <div className="mb-2 bp-overline">Current Output</div>
           <textarea
             value={draft.currentOutput}
             onChange={(e) => onChange({ currentOutput: e.target.value })}
             placeholder="粘贴当前输出"
-            className="min-h-[170px] w-full rounded-[1.5rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fafc)] px-5 py-4 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-200 focus:shadow-[0_0_0_4px_rgba(14,165,233,0.08)]"
+            className="bp-input min-h-[190px] text-sm leading-8"
           />
         </div>
-        <div className="flex flex-col gap-3 border-t border-slate-200/80 pt-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="max-w-xl text-sm leading-6 text-slate-500">
-            输入越完整，诊断越准确。至少建议同时提供任务目标、当前 Prompt 和一段实际输出。
-          </div>
-          <Button
-            className="h-12 rounded-full bg-slate-950 px-6 text-white hover:bg-slate-800"
-            disabled={isLoading || !draft.originalTask.trim() || !draft.currentPrompt.trim() || !draft.currentOutput.trim()}
-            onClick={() => onSubmit({
-              original_task: draft.originalTask.trim(),
-              current_prompt: draft.currentPrompt.trim(),
-              current_output: draft.currentOutput.trim(),
-            })}
-          >
-            {isLoading ? '调试中...' : '开始调试'}
-            {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
-          </Button>
+      </div>
+
+      <div className="mt-6 flex flex-col gap-4 border-t border-[var(--bp-line)] pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="max-w-xl text-sm leading-7 text-[var(--bp-ink-soft)]">
+          至少建议同时提供任务目标、当前 Prompt 和一段实际输出。这样系统才能判断到底是理解偏了、结构少了，还是约束没起效。
         </div>
+        <Button
+          className="bp-action-primary h-12 px-6"
+          disabled={isLoading || !draft.originalTask.trim() || !draft.currentPrompt.trim() || !draft.currentOutput.trim()}
+          onClick={() => onSubmit({
+            original_task: draft.originalTask.trim(),
+            current_prompt: draft.currentPrompt.trim(),
+            current_output: draft.currentOutput.trim(),
+          })}
+        >
+          {isLoading ? '调试中...' : '开始调试'}
+          {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+        </Button>
       </div>
     </div>
   );

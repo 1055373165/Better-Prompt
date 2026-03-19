@@ -3,10 +3,12 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
 
 
 TRUE_VALUES = {'1', 'true', 'yes', 'on'}
-DEFAULT_DATABASE_URL = 'sqlite+aiosqlite:///./betterprompt.db'
+DEFAULT_DATABASE_PATH = Path(__file__).resolve().parents[2] / 'betterprompt.db'
+DEFAULT_DATABASE_URL = f'sqlite+aiosqlite:///{DEFAULT_DATABASE_PATH}'
 
 
 def _read_bool_env(name: str, default: bool = False) -> bool:

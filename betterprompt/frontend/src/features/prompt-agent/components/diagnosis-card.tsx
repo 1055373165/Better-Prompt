@@ -43,26 +43,26 @@ const FAILURE_MODE_LABELS: Record<string, string> = {
 
 export function DiagnosisCard({ diagnosis }: { diagnosis: PromptDiagnosis }) {
   return (
-    <Card className="rounded-[1.75rem] border-white/70 bg-white/75 shadow-[0_20px_70px_-42px_rgba(15,23,42,0.22)] backdrop-blur-xl">
+    <Card className="rounded-[1.7rem] border-[var(--bp-line)] bg-[rgba(255,252,247,0.78)] shadow-[var(--bp-shadow-soft)]">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium text-slate-900">诊断摘要</CardTitle>
+        <CardTitle className="text-sm font-semibold text-[var(--bp-ink)]">诊断摘要</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-3 text-sm md:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">任务类型</div>
-          <div className="mt-2 font-medium text-slate-900">{TASK_TYPE_LABELS[diagnosis.task_type] ?? diagnosis.task_type}</div>
+        <div className="bp-meta-card">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">任务类型</div>
+          <div className="mt-2 font-semibold text-[var(--bp-ink)]">{TASK_TYPE_LABELS[diagnosis.task_type] ?? diagnosis.task_type}</div>
         </div>
-        <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">输出产物</div>
-          <div className="mt-2 font-medium text-slate-900">{OUTPUT_TYPE_LABELS[diagnosis.output_type] ?? diagnosis.output_type}</div>
+        <div className="bp-meta-card">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">输出产物</div>
+          <div className="mt-2 font-semibold text-[var(--bp-ink)]">{OUTPUT_TYPE_LABELS[diagnosis.output_type] ?? diagnosis.output_type}</div>
         </div>
-        <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">质量目标</div>
-          <div className="mt-2 font-medium text-slate-900">{QUALITY_TARGET_LABELS[diagnosis.quality_target] ?? diagnosis.quality_target}</div>
+        <div className="bp-meta-card">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">质量目标</div>
+          <div className="mt-2 font-semibold text-[var(--bp-ink)]">{QUALITY_TARGET_LABELS[diagnosis.quality_target] ?? diagnosis.quality_target}</div>
         </div>
-        <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">高风险失败模式</div>
-          <div className="mt-2 text-sm leading-6 text-slate-700">
+        <div className="bp-meta-card">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--bp-ink-soft)]">高风险失败模式</div>
+          <div className="mt-2 text-sm leading-6 text-[var(--bp-ink-soft)]">
             {diagnosis.failure_modes.map((mode) => FAILURE_MODE_LABELS[mode] ?? mode).join(' / ') || '—'}
           </div>
         </div>

@@ -1,4 +1,5 @@
 import re
+from typing import Any
 
 from app.schemas.prompt_agent import EvaluateScoreBreakdown
 
@@ -66,7 +67,14 @@ SCORE_INTERPRETATIONS = [
 
 
 class PromptEvaluateEngine:
-    def evaluate(self, target_text: str) -> tuple[EvaluateScoreBreakdown, int, str, str, str]:
+    def evaluate(
+        self,
+        target_text: str,
+        *,
+        target_type: str = 'prompt',
+        profile_rules: dict[str, Any] | None = None,
+        recipe_definition: dict[str, Any] | None = None,
+    ) -> tuple[EvaluateScoreBreakdown, int, str, str, str]:
         text = target_text.strip()
         lower_text = text.lower()
 
@@ -90,6 +98,9 @@ class PromptEvaluateEngine:
             natural_style=natural_style,
             overall_stability=overall_stability,
         )
+        breakdown = self._apply_target_type_adjustments(breakdown, lower_text, target_type)
+        breakdown = self._apply_profile_adjustments(breakdown, lower_text, profile_rules or {})
+        breakdown = self._apply_recipe_adjustments(breakdown, lower_text, recipe_definition or {})
 
         score_map = breakdown.model_dump()
         weakest_key = min(score_map, key=score_map.get)
@@ -106,9 +117,115 @@ class PromptEvaluateEngine:
         }
         top_issue, suggested_fix_layer = issue_map[weakest_key]
 
-        interpretation = self._interpret_total(total)
+        interpretation = self._interpret_total(total, profile_rules or {})
 
         return breakdown, total, interpretation, top_issue, suggested_fix_layer
+
+    def _apply_target_type_adjustments(
+        self,
+        breakdown: EvaluateScoreBreakdown,
+        lower_text: str,
+        target_type: str,
+    ) -> EvaluateScoreBreakdown:
+        if target_type != 'output':
+            return breakdown
+
+        updated = breakdown.model_copy(deep=True)
+        if any(keyword in lower_text for keyword in ['结论', '建议', '风险', 'evidence', 'recommend']):
+            updated.judgment_strength = min(updated.judgment_strength + 1, 5)
+        else:
+            updated.judgment_strength = max(updated.judgment_strength - 1, 1)
+
+        if any(keyword in lower_text for keyword in ['步骤', '行动', 'next step', '执行', '建议']):
+            updated.executability = min(updated.executability + 1, 5)
+
+        updated.overall_stability = self._score_overall_stability(
+            updated.problem_fit,
+            updated.constraint_awareness,
+            updated.information_density,
+            updated.judgment_strength,
+            updated.executability,
+            updated.natural_style,
+        )
+        return updated
+
+    def _apply_profile_adjustments(
+        self,
+        breakdown: EvaluateScoreBreakdown,
+        lower_text: str,
+        profile_rules: dict[str, Any],
+    ) -> EvaluateScoreBreakdown:
+        if not profile_rules:
+            return breakdown
+
+        updated = breakdown.model_copy(deep=True)
+        criteria = profile_rules.get('criteria', [])
+        if isinstance(criteria, list):
+            missing_hits = 0
+            for item in criteria:
+                if not isinstance(item, str):
+                    continue
+                tokens = [token.strip().lower() for token in re.split(r'[\s,;/]+', item) if token.strip()]
+                if tokens and not any(token in lower_text for token in tokens):
+                    missing_hits += 1
+            if missing_hits >= 1:
+                updated.constraint_awareness = max(updated.constraint_awareness - 1, 1)
+            if missing_hits >= 2:
+                updated.judgment_strength = max(updated.judgment_strength - 1, 1)
+
+        strictness = profile_rules.get('strictness')
+        if strictness == 'strict':
+            updated.information_density = max(updated.information_density - 1, 1)
+            updated.executability = max(updated.executability - 1, 1)
+
+        output_requirements = profile_rules.get('output_requirements')
+        if isinstance(output_requirements, dict) and output_requirements:
+            if not any(keyword in lower_text for keyword in ['格式', '结构', '输出', 'format', 'structure']):
+                updated.executability = max(updated.executability - 1, 1)
+
+        updated.overall_stability = self._score_overall_stability(
+            updated.problem_fit,
+            updated.constraint_awareness,
+            updated.information_density,
+            updated.judgment_strength,
+            updated.executability,
+            updated.natural_style,
+        )
+        return updated
+
+    def _apply_recipe_adjustments(
+        self,
+        breakdown: EvaluateScoreBreakdown,
+        lower_text: str,
+        recipe_definition: dict[str, Any],
+    ) -> EvaluateScoreBreakdown:
+        if not recipe_definition:
+            return breakdown
+
+        updated = breakdown.model_copy(deep=True)
+        required_inputs = recipe_definition.get('required_inputs', [])
+        if isinstance(required_inputs, list) and required_inputs:
+            if not any(isinstance(item, str) and item.lower() in lower_text for item in required_inputs):
+                updated.constraint_awareness = max(updated.constraint_awareness - 1, 1)
+
+        default_output_schema = recipe_definition.get('default_output_schema')
+        if isinstance(default_output_schema, dict) and default_output_schema:
+            if not any(keyword in lower_text for keyword in ['格式', '结构', 'schema', '字段', 'output']):
+                updated.executability = max(updated.executability - 1, 1)
+
+        supports_continue = recipe_definition.get('supports_continue')
+        if supports_continue is True and not any(keyword in lower_text for keyword in ['继续', '优化', '迭代', 'continue']):
+            updated.overall_stability = max(updated.overall_stability - 1, 1)
+
+        updated.overall_stability = self._score_overall_stability(
+            updated.problem_fit,
+            updated.constraint_awareness,
+            updated.information_density,
+            updated.judgment_strength,
+            updated.executability,
+            updated.natural_style,
+        )
+        return updated
 
     def _score_problem_fit(self, text: str, lower_text: str) -> int:
         signals = 0
@@ -256,8 +373,15 @@ class PromptEvaluateEngine:
             return 2
         return 1
 
-    def _interpret_total(self, total: int) -> str:
+    def _interpret_total(self, total: int, profile_rules: dict[str, Any]) -> str:
+        suffix = ''
+        pass_threshold = profile_rules.get('pass_threshold')
+        if isinstance(pass_threshold, (int, float)):
+            max_score = 35
+            actual_ratio = total / max_score
+            status_text = '达到' if actual_ratio >= float(pass_threshold) else '未达到'
+            suffix = f' 当前结果{status_text} profile 设定的通过阈值。'
         for low, high, interpretation in SCORE_INTERPRETATIONS:
             if low <= total <= high:
-                return interpretation
-        return SCORE_INTERPRETATIONS[-1][2]
+                return interpretation + suffix
+        return SCORE_INTERPRETATIONS[-1][2] + suffix

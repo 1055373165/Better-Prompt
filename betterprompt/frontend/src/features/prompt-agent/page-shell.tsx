@@ -1,9 +1,10 @@
+import { AppShell } from '@/components/app-shell';
 import PromptAgentPage from './index';
 
 export function PromptAgentPageShell() {
   return (
-    <main className="min-h-screen bg-background">
+    <AppShell>
       <PromptAgentPage />
-    </main>
+    </AppShell>
   );
 }
