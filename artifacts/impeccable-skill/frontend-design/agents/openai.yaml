@@ -1,0 +1,4 @@
+interface:
+  display_name: "Impeccable Frontend"
+  short_description: "Design and refine distinctive frontend interfaces"
+  default_prompt: "Use $frontend-design to redesign this frontend with a strong, memorable visual direction and production-grade interaction quality."

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TARGET_SCRIPT="$ROOT_DIR/scripts/betterprompt-service.sh"
+
+if [[ ! -x "$TARGET_SCRIPT" ]]; then
+  echo "Missing target script: $TARGET_SCRIPT"
+  exit 1
+fi
+
+exec "$TARGET_SCRIPT" "$@"

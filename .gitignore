@@ -18,3 +18,4 @@ dist/
 betterprompt/.run/*.pid
 betterprompt/.run/dev-ports.env
 betterprompt/backend/.venv
+.gstack/

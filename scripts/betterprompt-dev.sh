@@ -11,6 +11,8 @@ LOG_DIR="$RUN_DIR/logs"
 FRONTEND_BIN="$FRONTEND_DIR/node_modules/.bin/vite"
 PORTS_FILE="$RUN_DIR/dev-ports.env"
 BACKEND_PYTHON_BIN="$BACKEND_DIR/.venv/bin/python"
+BACKEND_ALEMBIC_BIN="$BACKEND_DIR/.venv/bin/alembic"
+BACKEND_ALEMBIC_CONFIG="$BACKEND_DIR/alembic.ini"
 BACKEND_UVICORN_BIN="$BACKEND_DIR/.venv/bin/uvicorn"
 
 BACKEND_PID_FILE="$RUN_DIR/backend.pid"
@@ -41,6 +43,7 @@ Commands:
   stop     Stop backend and frontend
   restart  Restart backend and frontend
   status   Show current process status
+  ports    Show port diagnostics and conflict details
   logs     Tail backend and frontend logs
 EOF
 }
@@ -86,6 +89,30 @@ clear_runtime_config() {
 port_in_use() {
   local port="$1"
   lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1
+}
+
+
+print_port_conflict_details() {
+  local port="$1"
+  local prefix="${2:-}"
+  local had_details=0
+
+  while read -r pid command endpoint; do
+    [[ -z "$pid" ]] && continue
+    had_details=1
+
+    local args
+    args="$(ps -p "$pid" -o args= 2>/dev/null | sed 's/^[[:space:]]*//' || true)"
+    if [[ -n "$args" ]]; then
+      echo "${prefix}port $port -> pid $pid (${command}) ${endpoint} :: $args"
+    else
+      echo "${prefix}port $port -> pid $pid (${command}) ${endpoint}"
+    fi
+  done < <(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $2, $1, $9}')
+
+  if [[ "$had_details" -eq 0 ]]; then
+    echo "${prefix}port $port is occupied."
+  fi
 }
 
 
@@ -170,15 +197,21 @@ find_available_port() {
   local label="$1"
   local preferred_port="$2"
   local candidate="$preferred_port"
+  local -a occupied_ports=()
 
   for ((i=0; i<50; i++)); do
     if ! port_in_use "$candidate"; then
-      if [[ "$candidate" != "$preferred_port" ]]; then
-        echo "$label port $preferred_port is in use, using $candidate instead." >&2
+      if [[ "${#occupied_ports[@]}" -gt 0 ]]; then
+        echo "$label preferred port $preferred_port is already occupied." >&2
+        for occupied_port in "${occupied_ports[@]}"; do
+          print_port_conflict_details "$occupied_port" "  - " >&2
+        done
+        echo "$label will use port $candidate instead." >&2
       fi
       echo "$candidate"
       return 0
     fi
+    occupied_ports+=("$candidate")
     candidate=$((candidate + 1))
   done
 
@@ -303,6 +336,19 @@ ensure_backend_ready() {
     echo "Missing backend env file. Create it first: $BACKEND_DIR/.env"
     exit 1
   fi
+
+  if [[ ! -x "$BACKEND_ALEMBIC_BIN" ]]; then
+    echo "Missing Alembic binary. Expected: $BACKEND_ALEMBIC_BIN"
+    echo "Install backend dependencies with:"
+    echo "  cd $BACKEND_DIR"
+    echo "  uv pip install --python .venv/bin/python -e ."
+    exit 1
+  fi
+
+  if [[ ! -f "$BACKEND_ALEMBIC_CONFIG" ]]; then
+    echo "Missing Alembic config. Expected: $BACKEND_ALEMBIC_CONFIG"
+    exit 1
+  fi
 }
 
 
@@ -339,6 +385,12 @@ start_backend() {
   BACKEND_PORT="$(find_available_port "Backend" "$DEFAULT_BACKEND_PORT")"
   refresh_urls
   save_runtime_config
+
+  echo "Running backend migrations..."
+  (
+    cd "$BACKEND_DIR"
+    "$BACKEND_ALEMBIC_BIN" -c "$BACKEND_ALEMBIC_CONFIG" upgrade head
+  )
 
   spawn_service \
     "$BACKEND_DIR" \
@@ -438,6 +490,28 @@ show_status() {
 }
 
 
+show_port_diagnostics() {
+  load_runtime_config
+  sync_ports_with_running_processes
+
+  echo "Port diagnostics:"
+
+  if port_in_use "$BACKEND_PORT"; then
+    echo "Backend target port: $BACKEND_PORT (occupied)"
+    print_port_conflict_details "$BACKEND_PORT" "  - "
+  else
+    echo "Backend target port: $BACKEND_PORT (available)"
+  fi
+
+  if port_in_use "$FRONTEND_PORT"; then
+    echo "Frontend target port: $FRONTEND_PORT (occupied)"
+    print_port_conflict_details "$FRONTEND_PORT" "  - "
+  else
+    echo "Frontend target port: $FRONTEND_PORT (available)"
+  fi
+}
+
+
 tail_logs() {
   touch "$BACKEND_LOG" "$FRONTEND_LOG"
   tail -n 60 -f "$BACKEND_LOG" "$FRONTEND_LOG"
@@ -473,6 +547,9 @@ case "$command" in
     ;;
   status)
     show_status
+    ;;
+  ports)
+    show_port_diagnostics
     ;;
   logs)
     tail_logs
