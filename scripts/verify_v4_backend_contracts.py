@@ -224,15 +224,45 @@ def run_http_smoke(backend_port: int) -> dict[str, str]:
 
     matching_session = next((item for item in sessions['items'] if item['id'] == first_run['prompt_session_id']), None)
     ensure(matching_session is not None, 'prompt-sessions should include the triggered agent session')
+    returned_session_ids = {item['id'] for item in sessions['items']}
+    expected_session_ids = {first_run['prompt_session_id'], second_run['prompt_session_id']}
+    ensure(
+        returned_session_ids == expected_session_ids,
+        'agent session filter should return both monitor-triggered sessions and nothing else',
+    )
+    ensure(
+        all(item['agent_monitor_id'] == monitor['id'] for item in sessions['items']),
+        'all filtered sessions should preserve agent_monitor_id',
+    )
+    ensure(
+        all(item['trigger_kind'] == 'manual' for item in sessions['items']),
+        'all filtered sessions should preserve trigger_kind',
+    )
+    ensure(matching_session['run_kind'] == 'agent_run', 'session summary should preserve agent_run')
+    ensure(matching_session['trigger_kind'] == 'manual', 'session summary should preserve trigger_kind')
     ensure(matching_session['agent_monitor_id'] == monitor['id'], 'session summary should preserve agent_monitor_id')
     ensure(matching_session['run_preset_id'] == run_preset['id'], 'session summary should preserve run_preset_id')
+    ensure(matching_session['run_preset_name'] == run_preset['name'], 'session summary should expose run_preset_name')
     ensure(
         matching_session['workflow_recipe_version_id'] == workflow_recipe['current_version']['id'],
         'session summary should preserve workflow recipe version',
     )
+    ensure(
+        matching_session['workflow_recipe_name'] == workflow_recipe['name'],
+        'session summary should expose workflow_recipe_name',
+    )
+    ensure(
+        matching_session['workflow_recipe_version_number'] == workflow_recipe['current_version']['version_number'],
+        'session summary should expose workflow_recipe_version_number',
+    )
     ensure(session_detail['run_kind'] == 'agent_run', 'session detail should preserve agent_run')
     ensure(session_detail['trigger_kind'] == 'manual', 'session detail should preserve trigger_kind')
     ensure(session_detail['agent_monitor_id'] == monitor['id'], 'session detail should preserve agent_monitor_id')
+    ensure(session_detail['run_preset_name'] == run_preset['name'], 'session detail should expose run_preset_name')
+    ensure(
+        session_detail['workflow_recipe_name'] == workflow_recipe['name'],
+        'session detail should expose workflow_recipe_name',
+    )
 
     ensure(isinstance(alerts.get('items'), list), 'agent-alerts should return a list response')
     ensure(isinstance(freshness.get('items'), list), 'freshness-records should return a list response')
